@@ -21,6 +21,14 @@ struct Trans
     char *s;
 };
 
+enum EXIT_CODES
+{
+    OK            = 0x00,
+    REQUIRE_FAIL  = 0x01,
+    REDECLARATION = 0x02,
+    UNDECLARED    = 0x03,
+};
+
 void SkipSpaces (Trans *trans);
 
 void MovePtr (Trans *trans);
@@ -46,3 +54,5 @@ int GetG (Trans *trans);
 int GetOP (Trans *trans);
 
 int SyntaxErr (const char *msg, ...);
+
+int GetDec (Trans *trans);

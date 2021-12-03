@@ -39,20 +39,36 @@ int CheckString (Trans *trans, const char *str)
         }
     }
 
-    trans->s = s_ptr;
-    return 1;
+    return (int) (s_ptr - trans->s);
 }
 
 int Require (Trans *trans, const char* req)
 {
-    if (!CheckString (trans, req))
+    int bytes_read = CheckString (trans, req);
+    if (!bytes_read)
     {
         SyntaxErr ("expected: %s; got: %s", req, trans->s);
-        return -1;
+        return REQUIRE_FAIL;
     }
+
+    trans->s += bytes_read;
 
     SkipSpaces (trans);
     return 0;
+}
+
+int GetG (Trans *trans)
+{
+    Require (trans, "You are my friend!");
+
+    int val = GetOP (trans);
+    while (*trans->s == '-')
+    {
+        val = GetOP (trans);
+    }
+
+    Require (trans, "Dattebayo!");
+    return val;
 }
 
 int GetN (Trans *trans)
@@ -90,9 +106,10 @@ int GetP (Trans *trans)
     }
     else if (isalpha (*trans->s))
     {
-        char *id_begin = trans->s;
+        char *init_s = trans->s;
 
         int hash = GetId (trans);
+
         SEMANTIC
         (
             for (int id = 0; id < trans->IdsNum; id++)
@@ -104,8 +121,8 @@ int GetP (Trans *trans)
             }
         )
 
-        SyntaxErr ("expected: ; got: %s", id_begin);
-        return -1;
+        SyntaxErr ("Using an undeclared variable: %s\n", init_s);
+        return UNDECLARED;
     }
     else
     {
@@ -124,12 +141,18 @@ int GetT (Trans *trans)
     while ((mul = CheckString (trans, "Kage Bunshin")) ||
            (div = CheckString (trans, "/")))
     {
-        SkipSpaces (trans);
+        trans->s += mul + div;
         int rVal = GetP (trans);
         SEMANTIC
         (
-            if (mul) val *= rVal;
-            else val /= rVal;
+            if (mul)
+            {
+                val *= rVal;
+            }
+            else
+            {
+                val /= rVal;
+            }
         )
     }
 
@@ -141,15 +164,24 @@ int GetE (Trans *trans)
     int val = GetT (trans);
     SkipSpaces (trans);
 
-    while (*trans->s == '+' || *trans->s == '-')
+    int add = 0;
+    int sub = 0;
+
+    while ((add = CheckString (trans, "Rasengan")) ||
+           (sub = CheckString (trans, "Chidori")))
     {
-        char op = *trans->s;
-        MovePtr (trans);
+        trans->s += add + sub;
         int rVal = GetT (trans);
         SEMANTIC
         (
-            if (op == '+') val += rVal;
-            else val -= rVal;
+            if (add)
+            {
+                val += rVal;
+            }
+            else
+            {
+                val -= rVal;
+            }
         )
     }
 
@@ -159,20 +191,18 @@ int GetE (Trans *trans)
 int GetOP (Trans *trans)
 {
     Require (trans, "-");
-    int val = Assn (trans);
-    Require (trans, "!");
-    return val;
-}
 
-int GetG (Trans *trans)
-{
-    Require (trans, "You are my friend!");
-    int val = GetOP (trans);
-    while (*trans->s == '-')
+    int val = 0;
+    if (CheckString (trans, "Kuchiyose no Jutsu"))
     {
-        val = GetOP (trans);
+        val = GetDec (trans);
     }
-    Require (trans, "Dattebayo!");
+    else
+    {
+        val = Assn (trans);
+    }
+
+    Require (trans, "!");
     return val;
 }
 
@@ -202,6 +232,8 @@ int GetId (Trans *trans)
 int Assn (Trans *trans)
 {
     SkipSpaces (trans);
+    char *init_s = trans->s;
+
     int hash = GetId (trans);
     int rVal = GetE (trans);
     Require (trans, "Desu");
@@ -215,11 +247,36 @@ int Assn (Trans *trans)
         }
     }
 
-    Id new_id    = {};
-    new_id.hash  = hash;
-    new_id.value = rVal;
+    SyntaxErr ("Using an undeclared variable: %s\n", init_s);
+    return UNDECLARED;
+}
 
-    trans->IdsArr[trans->IdsNum++] = new_id;
+int GetDec (Trans *trans)
+{
+    int bytes_read = CheckString (trans, "Kuchiyose no Jutsu");
+    if (bytes_read)
+    {
+        char *init_s = trans->s;
 
-    return rVal;
+        trans->s += bytes_read;
+        int hash = GetId (trans);
+
+        for (int id = 0; id < trans->IdsNum; id++)
+        {
+            if (trans->IdsArr[id].hash == hash)
+            {
+                SyntaxErr ("Re-declaration of variable: %s\n", init_s);
+                return REDECLARATION;
+            }
+        }
+
+        Id new_id    = {};
+        new_id.hash  = hash;
+        new_id.value = 0;
+
+        trans->IdsArr[trans->IdsNum++] = new_id;
+        return hash;
+    }
+
+    return -1;
 }
