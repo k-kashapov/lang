@@ -25,6 +25,8 @@ void SkipSpaces (Trans *trans);
 
 void MovePtr (Trans *trans);
 
+int CheckString (Trans *trans, const char *str);
+
 int GetN (Trans *trans);
 
 int GetP (Trans *trans);

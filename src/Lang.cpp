@@ -23,21 +23,32 @@ void MovePtr (Trans *trans)
     SkipSpaces (trans);
 }
 
-int Require (Trans *trans, const char* req)
+int CheckString (Trans *trans, const char *str)
 {
     SkipSpaces (trans);
-
-    for (; *req != '\0'; req++)
+    char *s_ptr = trans->s;
+    for (; *str != '\0'; str++)
     {
-        if (*trans->s == *req)
+        if (*s_ptr == *str)
         {
-            trans->s++;
+            s_ptr++;
         }
         else
         {
-            SyntaxErr ("expected: %s; got: %s", req, trans->s);
-            return -1;
+            return 0;
         }
+    }
+
+    trans->s = s_ptr;
+    return 1;
+}
+
+int Require (Trans *trans, const char* req)
+{
+    if (!CheckString (trans, req))
+    {
+        SyntaxErr ("expected: %s; got: %s", req, trans->s);
+        return -1;
     }
 
     SkipSpaces (trans);
@@ -46,6 +57,7 @@ int Require (Trans *trans, const char* req)
 
 int GetN (Trans *trans)
 {
+    SkipSpaces (trans);
     int val = 0;
 
     SEMANTIC
@@ -61,12 +73,14 @@ int GetN (Trans *trans)
             trans->s++;
         }
     )
+    Require (trans, "-tailed beast");
 
     return val;
 }
 
 int GetP (Trans *trans)
 {
+    SkipSpaces (trans);
     if (*trans->s == '(')
     {
         MovePtr (trans);
@@ -76,6 +90,8 @@ int GetP (Trans *trans)
     }
     else if (isalpha (*trans->s))
     {
+        char *id_begin = trans->s;
+
         int hash = GetId (trans);
         SEMANTIC
         (
@@ -88,7 +104,7 @@ int GetP (Trans *trans)
             }
         )
 
-        SyntaxErr ("expected: ; got: %s", trans->s);
+        SyntaxErr ("expected: ; got: %s", id_begin);
         return -1;
     }
     else
@@ -102,14 +118,17 @@ int GetT (Trans *trans)
     int val = GetP (trans);
     SkipSpaces (trans);
 
-    while (*trans->s == '*' || *trans->s == '/')
+    int mul = 0;
+    int div = 0;
+
+    while ((mul = CheckString (trans, "Kage Bunshin")) ||
+           (div = CheckString (trans, "/")))
     {
-        char op = *trans->s;
-        MovePtr (trans);
+        SkipSpaces (trans);
         int rVal = GetP (trans);
         SEMANTIC
         (
-            if (op == '*') val *= rVal;
+            if (mul) val *= rVal;
             else val /= rVal;
         )
     }
@@ -159,8 +178,9 @@ int GetG (Trans *trans)
 
 int GetId (Trans *trans)
 {
+    SkipSpaces (trans);
     int hash  = 0;
-    int char_read = 0;
+    int char_read = 1;
 
     if (!isalpha (*trans->s))
     {
@@ -181,9 +201,10 @@ int GetId (Trans *trans)
 
 int Assn (Trans *trans)
 {
+    SkipSpaces (trans);
     int hash = GetId (trans);
-    Require (trans, "=");
     int rVal = GetE (trans);
+    Require (trans, "Desu");
 
     for (int id = 0; id < trans->IdsNum; id++)
     {
