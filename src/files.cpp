@@ -50,7 +50,7 @@ long int read_all_lines (File_info *info, const char* file_name)
 
     String **strings_ptr = strings;
 
-    for (char *token = strtok (text_buff, "\n\r"); token; token = strtok (NULL, "\n\r"))
+    for (char *token = strtok (text_buff, "$\n\r"); token; token = strtok (NULL, "$\n\r"))
     {
       while (isspace(*token)) token++;
       char *token_ptr = token;
