@@ -12,15 +12,12 @@ int main (int argc, const char **argv)
         return -1;
     }
 
-    Trans trans = {};
-    trans.s = code;
-    trans.IdsArr = (Id *) calloc (INIT_IDS_NUM, sizeof (Id));
+    TNode **nodes = LexicAnalysis (code);
 
-    int val = GetG(&trans);
+    printf ("DIO!!!!!!!\n");
 
-    printf ("res = %d\n", val);
-
-    free (trans.IdsArr);
+    free (code);
+    free (nodes);
 
     return 0;
 }

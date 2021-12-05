@@ -1,59 +1,28 @@
 #include "Lang.h"
 
-int SyntaxErr (const char *msg, ...)
+int64_t SimpleHash (const void *data, int len)
 {
-    printf ("SYNTAX ERROR: ");
+    int64_t hash        = 0;
+    const char *data_ch = (char *) data;
 
-    va_list arg = {};
-    va_start (arg, msg);
-    vprintf (msg, arg);
-    va_end (arg);
-
-    return 0;
-}
-
-void SkipSpaces (Trans *trans)
-{
-    while (isspace (*trans->s)) trans->s++;
-}
-
-void MovePtr (Trans *trans)
-{
-    trans->s++;
-    SkipSpaces (trans);
-}
-
-int CheckString (Trans *trans, const char *str)
-{
-    SkipSpaces (trans);
-    char *s_ptr = trans->s;
-    for (; *str != '\0'; str++)
+    for (int byte = 0; byte < len; byte++)
     {
-        if (*s_ptr == *str)
-        {
-            s_ptr++;
-        }
-        else
-        {
-            return 0;
-        }
+        hash += data_ch[byte] * (byte + 1);
     }
 
-    return (int) (s_ptr - trans->s);
+    return hash;
 }
 
-int Require (Trans *trans, const char* req)
+int Require (Trans *trans, const char *req)
 {
-    int bytes_read = CheckString (trans, req);
-    if (!bytes_read)
+    int64_t hash = SimpleHash (token, strlen (token));
+    if (!trans->s->data != hash)
     {
-        SyntaxErr ("expected: %s; got: %s", req, trans->s);
+        SyntaxErr ("expected: %s\n", req);
         return REQUIRE_FAIL;
     }
-
-    trans->s += bytes_read;
-
     SkipSpaces (trans);
+
     return 0;
 }
 
@@ -73,7 +42,6 @@ int GetG (Trans *trans)
 
 int GetN (Trans *trans)
 {
-    SkipSpaces (trans);
     int val = 0;
 
     SEMANTIC
@@ -96,10 +64,8 @@ int GetN (Trans *trans)
 
 int GetP (Trans *trans)
 {
-    SkipSpaces (trans);
     if (*trans->s == '(')
     {
-        MovePtr (trans);
         int val = GetE (trans);
         Require (trans, ")");
         return val;
@@ -133,7 +99,6 @@ int GetP (Trans *trans)
 int GetT (Trans *trans)
 {
     int val = GetP (trans);
-    SkipSpaces (trans);
 
     int mul = 0;
     int div = 0;
@@ -162,7 +127,6 @@ int GetT (Trans *trans)
 int GetE (Trans *trans)
 {
     int val = GetT (trans);
-    SkipSpaces (trans);
 
     int add = 0;
     int sub = 0;
@@ -208,7 +172,6 @@ int GetOP (Trans *trans)
 
 int GetId (Trans *trans)
 {
-    SkipSpaces (trans);
     int hash  = 0;
     int char_read = 1;
 
@@ -231,7 +194,6 @@ int GetId (Trans *trans)
 
 int Assn (Trans *trans)
 {
-    SkipSpaces (trans);
     char *init_s = trans->s;
 
     int hash = GetId (trans);

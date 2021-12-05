@@ -1,12 +1,13 @@
-#include <stdio.h>
-#include <stdint.h>
-#include <ctype.h>
-#include "files.h"
 #include <stdarg.h>
+#include "files.h"
+#include "Tree.h"
 
 #define SEMANTIC(cmd) cmd
-const int MAX_STR_LEN  = 100;
+
 const int INIT_IDS_NUM = 10;
+
+const char NotAlpha[] = "0123456789-!? \n\t\r(){}[]^\\,.";
+const int  AlphaNum   = sizeof (NotAlpha) / sizeof (char);
 
 struct Id
 {
@@ -16,18 +17,19 @@ struct Id
 
 struct Trans
 {
-    Id  *IdsArr;
-    int IdsNum;
-    char *s;
+    Id    *IdsArr;
+    int   IdsNum;
+    TNode **s;
 };
 
-enum EXIT_CODES
+enum LANG_EXIT_CODES
 {
-    OK            = 0x00,
     REQUIRE_FAIL  = 0x01,
     REDECLARATION = 0x02,
     UNDECLARED    = 0x03,
 };
+
+int IsAlpha (char val);
 
 void SkipSpaces (Trans *trans);
 
@@ -56,3 +58,7 @@ int GetOP (Trans *trans);
 int SyntaxErr (const char *msg, ...);
 
 int GetDec (Trans *trans);
+
+TNode *ReadToken (const char *str);
+
+TNode **LexicAnalysis (const char *string);
