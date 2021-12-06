@@ -1,9 +1,11 @@
 #include "Lang.h"
 
+#define ST(l, r) CreateNode (0, TYPE_STATEMENT, NULL, l, r)
+
 int64_t SimpleHash (const void *data, int len)
 {
     int64_t hash        = 0;
-    const char *data_ch = (char *) data;
+    const char *data_ch = (const char *) data;
 
     for (int byte = 0; byte < len; byte++)
     {
@@ -13,82 +15,100 @@ int64_t SimpleHash (const void *data, int len)
     return hash;
 }
 
-int Require (Trans *trans, const char *req)
+static void MovePtr (Trans *trans)
 {
-    int64_t hash = SimpleHash (token, strlen (token));
-    if (!trans->s->data != hash)
+    trans->s++;
+}
+
+static TNode *GetTok (Trans *trans)
+{
+    return *trans->s;
+}
+
+static int CheckTok (Trans *trans, const char *req)
+{
+    int64_t hash = SimpleHash (req, (int) strlen (req));
+    return GetTok (trans)->data == hash;
+}
+
+static int Require (Trans *trans, const char *req)
+{
+    char *req_str = strdup (req);
+    for (char *strtoken = strtok (req_str, " "); strtoken; strtoken = strtok (NULL, " "))
     {
-        SyntaxErr ("expected: %s\n", req);
-        return REQUIRE_FAIL;
+        int64_t hash = SimpleHash (strtoken, (int) strlen (strtoken));
+
+        TNode *token = GetTok (trans);
+        if (token->data != hash)
+        {
+            long line_len = strchr (token->declared, '\n') - token->declared;
+            SyntaxErr ("expected: %s; got: %.*s\n", strtoken, line_len, token->declared);
+            return REQUIRE_FAIL;
+        }
+        MovePtr (trans);
     }
-    SkipSpaces (trans);
 
     return 0;
 }
 
-int GetG (Trans *trans)
+TNode *GetG (Trans *trans)
 {
-    Require (trans, "You are my friend!");
+    Require (trans, "Купил мужик шляпу");
 
-    int val = GetOP (trans);
-    while (*trans->s == '-')
-    {
-        val = GetOP (trans);
-    }
+    GetDec (trans);
+    TNode *root = ST (Assn (trans), NULL);
+    GetDec (trans);
+    root->right = ST (Assn (trans), NULL);
 
-    Require (trans, "Dattebayo!");
-    return val;
+    VisitNode (root, TreePrintLeftBracket, TreeNodePrint, TreePrintRightBracket);
+
+    Require (trans, "А она ему как раз");
+    return root;
 }
 
-int GetN (Trans *trans)
+TNode *GetN (Trans *trans)
 {
-    int val = 0;
+    TNode *node = GetTok (trans);
 
-    SEMANTIC
-    (
-        if (*trans->s < '0' || *trans->s > '9')
-        {
-            SyntaxErr ("expected: number; got: %s", trans->s);
-        }
+    if (node->type != TYPE_CONST)
+    {
+        SyntaxErr ("Invalid type: expected CONST, got %d\n", node->type);
+        return NULL;
+    }
+    MovePtr (trans);
 
-        while (*trans->s >= '0' && *trans->s <= '9')
-        {
-            val = val * 10 + (*trans->s - '0');
-            trans->s++;
-        }
-    )
-    Require (trans, "-tailed beast");
-
-    return val;
+    return node;
 }
 
-int GetP (Trans *trans)
+TNode *GetP (Trans *trans)
 {
-    if (*trans->s == '(')
+    TNode *token = GetTok (trans);
+    if (CheckTok (trans, "Кто")) // Left bracket '('
     {
-        int val = GetE (trans);
-        Require (trans, ")");
-        return val;
+        MovePtr (trans);
+        Require (trans, "прочитал");
+
+        TNode *node = GetE (trans);
+
+        Require (trans, "тот сдохнет"); // Right bracket ')'
+        return node;
     }
-    else if (isalpha (*trans->s))
+    else if (token->type == TYPE_ID)
     {
-        char *init_s = trans->s;
-
-        int hash = GetId (trans);
-
-        SEMANTIC
-        (
-            for (int id = 0; id < trans->IdsNum; id++)
+        for (int id = 0; id < trans->IdsNum; id++)
+        {
+            if (trans->IdsArr[id].hash == token->data)
             {
-                if (trans->IdsArr[id].hash == hash)
-                {
-                    return trans->IdsArr[id].value;
-                }
+                MovePtr (trans);
+                return token;
             }
-        )
+        }
 
-        SyntaxErr ("Using an undeclared variable: %s\n", init_s);
-        return UNDECLARED;
+        long line_len = strchr (token->declared, '\n') - token->declared;
+        SyntaxErr ("Using an undeclared variable: %.*s\n",
+                   line_len,
+                   token->declared);
+        return NULL;
     }
     else
     {
@@ -96,149 +116,155 @@ int GetP (Trans *trans)
     }
 }
 
-int GetT (Trans *trans)
+TNode *GetT (Trans *trans)
 {
-    int val = GetP (trans);
+    TNode *val = GetP (trans);
 
-    int mul = 0;
-    int div = 0;
-
-    while ((mul = CheckString (trans, "Kage Bunshin")) ||
-           (div = CheckString (trans, "/")))
+    if (CheckTok (trans, "*") ||
+        CheckTok (trans, "/"))
     {
-        trans->s += mul + div;
-        int rVal = GetP (trans);
-        SEMANTIC
-        (
-            if (mul)
-            {
-                val *= rVal;
-            }
-            else
-            {
-                val /= rVal;
-            }
-        )
+        TNode *action = GetTok (trans);
+        MovePtr (trans);
+
+        TNode *rVal   = GetP (trans);
+        action->left  = val;
+        action->right = rVal;
+        TNode *curr   = action;
+
+        while (CheckTok (trans, "*") ||
+               CheckTok (trans, "/"))
+        {
+            TNode *new_action = GetTok (trans);
+            new_action->left  = curr->right;
+            curr->right       = new_action;
+            curr              = new_action;
+            curr->right       = GetP (trans);
+        }
+
+        val = action;
     }
 
     return val;
 }
 
-int GetE (Trans *trans)
+TNode *GetE (Trans *trans)
 {
-    int val = GetT (trans);
+    TNode *val = GetT (trans);
 
-    int add = 0;
-    int sub = 0;
-
-    while ((add = CheckString (trans, "Rasengan")) ||
-           (sub = CheckString (trans, "Chidori")))
+    if (CheckTok (trans, "+") ||
+        CheckTok (trans, "-"))
     {
-        trans->s += add + sub;
-        int rVal = GetT (trans);
-        SEMANTIC
-        (
-            if (add)
-            {
-                val += rVal;
-            }
-            else
-            {
-                val -= rVal;
-            }
-        )
+        TNode *action = GetTok (trans);
+        MovePtr (trans);
+
+        TNode *rVal   = GetP (trans);
+        action->left  = val;
+        action->right = rVal;
+        TNode *curr   = action;
+
+        while (CheckTok (trans, "+") ||
+               CheckTok (trans, "-"))
+        {
+            TNode *new_action = GetTok (trans);
+            new_action->left  = curr->right;
+            curr->right       = new_action;
+            curr              = new_action;
+            curr->right       = GetP (trans);
+        }
+
+        val = action;
     }
 
     return val;
 }
 
-int GetOP (Trans *trans)
+// int GetOP (Trans *trans)
+// {
+//     Require (trans, "-");
+//
+//     int val = 0;
+//     if (CheckString (trans, "Kuchiyose no Jutsu"))
+//     {
+//         val = GetDec (trans);
+//     }
+//     else
+//     {
+//         val = Assn (trans);
+//     }
+//
+//     Require (trans, "!");
+//     return val;
+// }
+//
+// int GetId (Trans *trans)
+// {
+//     int hash  = 0;
+//     int char_read = 1;
+//
+//     if (!isalpha (*trans->s))
+//     {
+//         SyntaxErr ("expected: letter; got: %s", trans->s);
+//     }
+//
+//     for (; isalpha (*trans->s); char_read++)
+//     {
+//         SEMANTIC
+//         (
+//             hash += *trans->s * char_read;
+//         )
+//         trans->s++;
+//     }
+//
+//     return hash;
+// }
+
+TNode *Assn (Trans *trans)
 {
-    Require (trans, "-");
+    Require (trans, "Этим");
 
-    int val = 0;
-    if (CheckString (trans, "Kuchiyose no Jutsu"))
-    {
-        val = GetDec (trans);
-    }
-    else
-    {
-        val = Assn (trans);
-    }
+    TNode *var = GetTok (trans);
+    MovePtr (trans);
 
-    Require (trans, "!");
-    return val;
-}
+    Require (trans, "был");
 
-int GetId (Trans *trans)
-{
-    int hash  = 0;
-    int char_read = 1;
-
-    if (!isalpha (*trans->s))
-    {
-        SyntaxErr ("expected: letter; got: %s", trans->s);
-    }
-
-    for (; isalpha (*trans->s); char_read++)
-    {
-        SEMANTIC
-        (
-            hash += *trans->s * char_read;
-        )
-        trans->s++;
-    }
-
-    return hash;
-}
-
-int Assn (Trans *trans)
-{
-    char *init_s = trans->s;
-
-    int hash = GetId (trans);
-    int rVal = GetE (trans);
-    Require (trans, "Desu");
+    TNode *value = GetE (trans);
 
     for (int id = 0; id < trans->IdsNum; id++)
     {
-        if (trans->IdsArr[id].hash == hash)
+        if (trans->IdsArr[id].hash == var->data)
         {
-            trans->IdsArr[id].value = rVal;
-            return rVal;
+            return CreateNode ('=', TYPE_OP, var->declared, var, value);
         }
     }
 
-    SyntaxErr ("Using an undeclared variable: %s\n", init_s);
-    return UNDECLARED;
+    long line_len = strchr (var->declared, '\n') - var->declared;
+    SyntaxErr ("Using an undeclared variable: %.*s\n", line_len, var->declared);
+    return NULL;
 }
 
 int GetDec (Trans *trans)
 {
-    int bytes_read = CheckString (trans, "Kuchiyose no Jutsu");
-    if (bytes_read)
+    if (Require (trans, "\"")) return REDECLARATION;
+
+    TNode *idtok = GetTok (trans);
+    MovePtr (trans);
+
+    if (Require (trans, "\" - подумал Штирлиц")) return REDECLARATION;
+
+    for (int id = 0; id < trans->IdsNum; id++)
     {
-        char *init_s = trans->s;
-
-        trans->s += bytes_read;
-        int hash = GetId (trans);
-
-        for (int id = 0; id < trans->IdsNum; id++)
+        if (trans->IdsArr[id].hash == idtok->data)
         {
-            if (trans->IdsArr[id].hash == hash)
-            {
-                SyntaxErr ("Re-declaration of variable: %s\n", init_s);
-                return REDECLARATION;
-            }
+            long line_len = strchr (idtok->declared, '\n') - idtok->declared;
+            SyntaxErr ("Re-declaration of variable: %.*s\n",
+                       line_len, idtok->declared);
+            return REDECLARATION;
         }
-
-        Id new_id    = {};
-        new_id.hash  = hash;
-        new_id.value = 0;
-
-        trans->IdsArr[trans->IdsNum++] = new_id;
-        return hash;
     }
 
-    return -1;
+    Id new_id    = {};
+    new_id.hash  = idtok->data;
+
+    trans->IdsArr[trans->IdsNum++] = new_id;
+    return 0;
 }

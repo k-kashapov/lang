@@ -23,7 +23,7 @@ TNode *GetRoot (Tree *tree)
     return tree->root;
 }
 
-TNode *CreateNode (tree_elem value, int type, TNode *left, TNode *right)
+TNode *CreateNode (tree_elem value, int type, const char *declared, TNode *left, TNode *right)
 {
     TNode *node_ptr = (TNode *) calloc (1, sizeof (TNode));
     if (!node_ptr)
@@ -31,9 +31,10 @@ TNode *CreateNode (tree_elem value, int type, TNode *left, TNode *right)
         printf ("MEM_ALLOC_ERR\n");
     }
 
-    node_ptr->data   = value;
-    node_ptr->left   = left;
-    node_ptr->right  = right;
+    node_ptr->data     = value;
+    node_ptr->left     = left;
+    node_ptr->right    = right;
+    node_ptr->declared = declared;
     if (left)
     {
         left->parent = node_ptr;
@@ -64,6 +65,20 @@ TNode *AddNodeRight (TNode *node, tree_elem value)
     node_ptr->parent = node;
 
     return node_ptr;
+}
+
+void TreePrintLeftBracket (TNode *node)
+{
+    if (node)
+        printf ("(");
+    return;
+}
+
+void TreePrintRightBracket (TNode *node)
+{
+    if (node)
+        printf (")");
+    return;
 }
 
 void TreeNodePrint (TNode *node)

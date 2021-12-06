@@ -14,6 +14,12 @@ int main (int argc, const char **argv)
 
     TNode **nodes = LexicAnalysis (code);
 
+    Trans trans  = {};
+    trans.IdsArr = (Id *) calloc (INIT_IDS_NUM, sizeof (Id));
+    trans.s      = nodes;
+
+    TNode *res = GetG (&trans);
+
     printf ("DIO!!!!!!!\n");
 
     free (code);

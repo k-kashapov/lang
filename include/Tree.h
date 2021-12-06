@@ -23,6 +23,7 @@ struct TNode
 {
     tree_elem data;
     int type;
+    const char *declared;
     TNode *left;
     TNode *right;
     TNode *parent;
@@ -42,10 +43,12 @@ enum TREE_EXIT_CODES
 
 enum TYPES
 {
-    TYPE_CONST = 0x001,
-    TYPE_ID    = 0x002,
-    TYPE_OP    = 0x003,
-    TYPE_UNARY = 0x004,
+    TYPE_CONST     = 0x001,
+    TYPE_ID        = 0x002,
+    TYPE_OP        = 0x003,
+    TYPE_UNARY     = 0x004,
+    TYPE_VAR       = 0x005,
+    TYPE_STATEMENT = 0x006,
 };
 
 typedef void (*NodeAction) (TNode *);
@@ -54,11 +57,17 @@ Tree *CreateTree (tree_elem value);
 
 TNode *GetRoot (Tree *tree);
 
-TNode *CreateNode (tree_elem value, int type = 0, TNode *left = NULL, TNode *right = NULL);
+TNode *CreateNode (tree_elem value,
+                   int   type  = 0,    const char *declared = NULL,
+                   TNode *left = NULL, TNode      *right    = NULL);
 
 TNode *AddNodeLeft (TNode *node, tree_elem value);
 
 TNode *AddNodeRight (TNode *node, tree_elem value);
+
+void TreePrintLeftBracket (TNode *node);
+
+void TreePrintRightBracket (TNode *node);
 
 void TreeNodePrint (TNode *node);
 

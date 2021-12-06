@@ -38,7 +38,10 @@ int SyntaxErr (const char *msg, ...)
 
 static void SkipSpaces (LexicAn *la)
 {
-    while (isspace (*la->str)) la->str++;
+    while (isspace (*la->str))
+    {
+        la->str++;
+    }
 }
 
 static void MovePtr (LexicAn *la)
@@ -49,6 +52,10 @@ static void MovePtr (LexicAn *la)
 
 static TNode *GetLexToken (LexicAn *lan)
 {
+    printf ("char = %c; (%3d); ", *lan->str, *lan->str);
+
+    const char *declared = lan->str;
+
     if (IsAlpha (*lan->str))
     {
         int64_t hash       = 0;
@@ -60,31 +67,40 @@ static TNode *GetLexToken (LexicAn *lan)
             lan->str++;
         } while (IsAlpha (*lan->str));
 
-        return CreateNode (hash, TYPE_ID);
+        return CreateNode (hash, TYPE_ID, declared);
     }
     else if (*lan->str >= '0' && *lan->str <= '9')
     {
-        int64_t val = (int64_t) (*lan->str - '0');
+        int64_t val = 0;
+
         do
         {
             val = val * 10 + (*lan->str - '0');
             MovePtr (lan);
         } while (*lan->str >= '0' && *lan->str <= '9');
 
-        return CreateNode (val, TYPE_CONST);
+        return CreateNode (val, TYPE_CONST, declared);
     }
     else switch (*lan->str)
     {
+        case '+': [[fallthrough]];
         case '-':
-            MovePtr (lan);
-            return CreateNode ('-', TYPE_ID);
+            {
+                char sign = *lan->str;
+                MovePtr (lan);
+                return CreateNode (sign, TYPE_OP, declared);
+            }
         case '!': [[fallthrough]];
         case '?': [[fallthrough]];
         case '.':
             MovePtr (lan);
-            return CreateNode ('.', TYPE_ID);
+            return CreateNode ('.', TYPE_ID, declared);
+        case '\"':
+            MovePtr (lan);
+            return CreateNode ('\"', TYPE_ID, declared);
         default:
-            SyntaxErr ("Unknown snymbol: %s", lan->str);
+            SyntaxErr ("Unknown snymbol: %c (%d): %s",
+                       *lan->str, *lan->str, lan->str);
     }
 
     return NULL;
@@ -98,6 +114,7 @@ static int AnalyzeString (LexicAn *lan)
     while (*lan->str != '\0' && lan->str - init_str < code_len)
     {
         TNode *tok = GetLexToken (lan);
+        printf ("%ld\n", tok->data);
         if (!tok) return -1;
 
         if (lan->nodesNum >= lan->nodesCap)
@@ -110,6 +127,7 @@ static int AnalyzeString (LexicAn *lan)
         }
 
         lan->nodesArr[lan->nodesNum++] = tok;
+        SkipSpaces (lan);
     }
 
     return (int) (lan->str - init_str);

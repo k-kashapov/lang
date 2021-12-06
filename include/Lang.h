@@ -6,13 +6,12 @@
 
 const int INIT_IDS_NUM = 10;
 
-const char NotAlpha[] = "0123456789-!? \n\t\r(){}[]^\\,.";
+const char NotAlpha[] = "0123456789-+!? \"\n\t\r(){}[]^\\,.";
 const int  AlphaNum   = sizeof (NotAlpha) / sizeof (char);
 
 struct Id
 {
     int64_t hash;
-    int     value;
 };
 
 struct Trans
@@ -31,27 +30,19 @@ enum LANG_EXIT_CODES
 
 int IsAlpha (char val);
 
-void SkipSpaces (Trans *trans);
+TNode *GetN (Trans *trans);
 
-void MovePtr (Trans *trans);
+TNode *GetP (Trans *trans);
 
-int CheckString (Trans *trans, const char *str);
+TNode *GetT (Trans *trans);
 
-int GetN (Trans *trans);
-
-int GetP (Trans *trans);
-
-int GetT (Trans *trans);
-
-int GetE (Trans *trans);
+TNode *GetE (Trans *trans);
 
 int GetId (Trans *trans);
 
-int Assn (Trans *trans);
+TNode *Assn (Trans *trans);
 
-int Require (Trans *trans, const char* req);
-
-int GetG (Trans *trans);
+TNode *GetG (Trans *trans);
 
 int GetOP (Trans *trans);
 
@@ -62,3 +53,5 @@ int GetDec (Trans *trans);
 TNode *ReadToken (const char *str);
 
 TNode **LexicAnalysis (const char *string);
+
+int64_t SimpleHash (const void *data, int len);
