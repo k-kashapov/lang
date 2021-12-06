@@ -1,4 +1,4 @@
-#include "Diff.h"
+#include "Lang.h"
 
 static FILE *Graph_file = NULL;
 
@@ -12,8 +12,7 @@ void OpenGraphFile (const char *name)
     Graph_file = fopen (name, "wt");
     if (!Graph_file)
     {
-        LOG_ERROR ("Cannot open Graph_file, name = %s\n",
-                    , name);
+        printf ("Cannot open Graph_file, name = %s\n", name);
         return;
     }
 
@@ -52,6 +51,14 @@ void PrintNodeDot (TNode *node)
 
     switch (node->type)
     {
+        case TYPE_STATEMENT:
+            color = "gold";
+            shape = "octagon";
+            break;
+        case TYPE_ID:
+            color = "lawngreen";
+            shape = "Mcircle";
+            break;
         case TYPE_CONST:
             color = "purple";
             break;
@@ -62,26 +69,23 @@ void PrintNodeDot (TNode *node)
         case TYPE_UNARY: [[fallthrough]];
         case TYPE_OP:
             shape = "diamond";
-            switch ((int) node->data)
+            switch (node->data)
             {
                 COLOR_CASE ('+',  "lightgreen");
                 COLOR_CASE ('-',  "cornflowerblue");
-                COLOR_CASE ('*',  "gold");
                 COLOR_CASE ('/',  "orange");
-                COLOR_CASE ('^',  "aqua");
+                COLOR_CASE ('=',  "aqua");
                 COLOR_CASE (SIN,  "wheat1");
                 COLOR_CASE (COS,  "plum1");
                 COLOR_CASE (ASIN, "olivedrab1");
                 COLOR_CASE (ACOS, "magenta");
                 COLOR_CASE (LN,   "bisque1");
                 default:
-                    LOG_ERROR ("Graph build: Invalid operation: %lf, node %p\n",
-                                , node->data, node);
+                    printf ("Graph build: Invalid operation: %ld, node %p\n", node->data, node);
             }
             break;
         default:
-            LOG_ERROR ("Graph build: Invalid node type: %d, node %p\n",
-                        , node->type, node);
+            printf ("Graph build: Invalid node type: %d, node %p\n", node->type, node);
     }
     fprintf (Graph_file,
                 "NODE%p"
@@ -97,16 +101,15 @@ void PrintNodeDot (TNode *node)
         case TYPE_UNARY: [[fallthrough]];
         case TYPE_VAR:
             {
-                int64_t data = (int) node->data;
+                int64_t data = node->data;
                 fprintf (Graph_file, "%s", (char *)&data);
             }
             break;
         case TYPE_CONST:
-            fprintf (Graph_file, "%.3lf\n", node->data);
+            fprintf (Graph_file, "%ld\n", node->data);
             break;
         default:
-            LOG_ERROR ("Graph build: Invalid node type: %d, node %p\n",
-                        , node->type, node);
+            printf ("Graph build: Invalid node type: %d, node %p\n", node->type, node);
     }
 
     fprintf (Graph_file, "\"]\n");

@@ -43,11 +43,13 @@ static int Require (Trans *trans, const char *req)
         {
             long line_len = strchr (token->declared, '\n') - token->declared;
             SyntaxErr ("expected: %s; got: %.*s\n", strtoken, line_len, token->declared);
+            free (req_str);
             return REQUIRE_FAIL;
         }
         MovePtr (trans);
     }
 
+    free (req_str);
     return 0;
 }
 

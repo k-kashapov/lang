@@ -28,6 +28,15 @@ enum LANG_EXIT_CODES
     UNDECLARED    = 0x03,
 };
 
+enum UNARY_FUNCS
+{
+    SIN  = 'nis',
+    COS  = 'soc',
+    ASIN = 'nisa',
+    ACOS = 'soca',
+    LN   = 'nl',
+};
+
 int IsAlpha (char val);
 
 TNode *GetN (Trans *trans);
@@ -55,3 +64,11 @@ TNode *ReadToken (const char *str);
 TNode **LexicAnalysis (const char *string);
 
 int64_t SimpleHash (const void *data, int len);
+
+void OpenGraphFile (const char *name);
+
+void PrintNodeDot (TNode *node);
+
+int CreateNodeImage (TNode *node, const char *name);
+
+void CloseGraphFile (void);

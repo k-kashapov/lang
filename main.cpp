@@ -20,8 +20,13 @@ int main (int argc, const char **argv)
 
     TNode *res = GetG (&trans);
 
+    OpenGraphFile ("dotInput.dot");
+    CreateNodeImage (res, "res.png");
+    CloseGraphFile();
+
     printf ("DIO!!!!!!!\n");
 
+    DestructNode (res); // TODO ALL Nodes destruction
     free (code);
     free (nodes);
 
