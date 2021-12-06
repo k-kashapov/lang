@@ -6,7 +6,7 @@
 
 const int INIT_IDS_NUM = 10;
 
-const char NotAlpha[] = "0123456789-+!? \"\n\t\r(){}[]^\\,.";
+const char NotAlpha[] = "0123456789-+!?*/ \"\n\t\r(){}[]^\\,.";
 const int  AlphaNum   = sizeof (NotAlpha) / sizeof (char);
 
 struct Id
@@ -28,14 +28,16 @@ enum LANG_EXIT_CODES
     UNDECLARED    = 0x03,
 };
 
-enum UNARY_FUNCS
+int64_t SimpleHash (const void *data, int len);
+
+const int64_t UnaryFuncs[] =
 {
-    SIN  = 'nis',
-    COS  = 'soc',
-    ASIN = 'nisa',
-    ACOS = 'soca',
-    LN   = 'nl',
+    SimpleHash ("sin",  3),
+    SimpleHash ("cos",  3),
+    SimpleHash ("diff", 4)
 };
+
+const int UnaryNum = sizeof (UnaryFuncs) / sizeof (int64_t);
 
 int IsAlpha (char val);
 
@@ -47,13 +49,13 @@ TNode *GetT (Trans *trans);
 
 TNode *GetE (Trans *trans);
 
-int GetId (Trans *trans);
+TNode *GetPow (Trans *trans);
 
 TNode *Assn (Trans *trans);
 
 TNode *GetG (Trans *trans);
 
-int GetOP (Trans *trans);
+TNode *GetOP (Trans *trans);
 
 int SyntaxErr (const char *msg, ...);
 
@@ -61,9 +63,7 @@ int GetDec (Trans *trans);
 
 TNode *ReadToken (const char *str);
 
-TNode **LexicAnalysis (const char *string);
-
-int64_t SimpleHash (const void *data, int len);
+TNode **LexicAnalysis (const char *string, int *nodesNum);
 
 void OpenGraphFile (const char *name);
 
@@ -72,3 +72,5 @@ void PrintNodeDot (TNode *node);
 int CreateNodeImage (TNode *node, const char *name);
 
 void CloseGraphFile (void);
+
+void FreeTransTree (TNode *root, TNode **nodes, int nodesNum);

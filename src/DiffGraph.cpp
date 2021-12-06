@@ -66,26 +66,26 @@ void PrintNodeDot (TNode *node)
             color = "pink";
             shape = "ellipse";
             break;
-        case TYPE_UNARY: [[fallthrough]];
+        case TYPE_UNARY:
+            shape = "diamond";
+            color = "plum1";
+            break;
         case TYPE_OP:
             shape = "diamond";
             switch (node->data)
             {
-                COLOR_CASE ('+',  "lightgreen");
-                COLOR_CASE ('-',  "cornflowerblue");
-                COLOR_CASE ('/',  "orange");
-                COLOR_CASE ('=',  "aqua");
-                COLOR_CASE (SIN,  "wheat1");
-                COLOR_CASE (COS,  "plum1");
-                COLOR_CASE (ASIN, "olivedrab1");
-                COLOR_CASE (ACOS, "magenta");
-                COLOR_CASE (LN,   "bisque1");
+                COLOR_CASE ('^', "tan");
+                COLOR_CASE ('+', "lightgreen");
+                COLOR_CASE ('-', "cornflowerblue");
+                COLOR_CASE ('*', "lightcyan");
+                COLOR_CASE ('/', "orange");
+                COLOR_CASE ('=', "aqua");
                 default:
                     printf ("Graph build: Invalid operation: %ld, node %p\n", node->data, node);
             }
             break;
         default:
-            printf ("Graph build: Invalid node type: %d, node %p\n", node->type, node);
+            printf ("Graph build (%d): Invalid node type: %d, node %p\n", __LINE__, node->type, node);
     }
     fprintf (Graph_file,
                 "NODE%p"
@@ -97,9 +97,18 @@ void PrintNodeDot (TNode *node)
 
     switch (node->type)
     {
+        case TYPE_VAR: [[fallthrough]];
+        case TYPE_ID:
+            {
+                int line_len = (int) (strchr (node->declared, ' ') - node->declared);
+                fprintf (Graph_file, "%.*s", line_len, node->declared);
+                break;
+            }
+        case TYPE_STATEMENT:
+            fprintf (Graph_file, "statement");
+            break;
         case TYPE_OP:    [[fallthrough]];
-        case TYPE_UNARY: [[fallthrough]];
-        case TYPE_VAR:
+        case TYPE_UNARY:
             {
                 int64_t data = node->data;
                 fprintf (Graph_file, "%s", (char *)&data);
@@ -109,7 +118,7 @@ void PrintNodeDot (TNode *node)
             fprintf (Graph_file, "%ld\n", node->data);
             break;
         default:
-            printf ("Graph build: Invalid node type: %d, node %p\n", node->type, node);
+            printf ("Graph build (%d): Invalid node type: %d, node %p\n", __LINE__, node->type, node);
     }
 
     fprintf (Graph_file, "\"]\n");

@@ -83,8 +83,11 @@ static TNode *GetLexToken (LexicAn *lan)
     }
     else switch (*lan->str)
     {
+        case '^': [[fallthrough]];
         case '+': [[fallthrough]];
-        case '-':
+        case '-': [[fallthrough]];
+        case '*': [[fallthrough]];
+        case '/':
             {
                 char sign = *lan->str;
                 MovePtr (lan);
@@ -133,11 +136,12 @@ static int AnalyzeString (LexicAn *lan)
     return (int) (lan->str - init_str);
 }
 
-TNode **LexicAnalysis (const char *string)
+TNode **LexicAnalysis (const char *string, int *nodesNum)
 {
     TNode **nodesArr = (TNode **) calloc (INIT_NODES_NUM, sizeof (TNode *));
     LexicAn lan      = {};
     lan.str          = string;
+    lan.nodesNum     = 0;
     lan.nodesArr     = nodesArr;
     lan.nodesCap     = INIT_NODES_NUM;
 
@@ -147,6 +151,8 @@ TNode **LexicAnalysis (const char *string)
         printf ("ERROR: Analysis failed!\n");
         return NULL;
     }
+
+    *nodesNum = lan.nodesNum;
 
     return lan.nodesArr;
 }

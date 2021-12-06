@@ -207,8 +207,11 @@ int DestructNode (TNode *node)
         DestructNode (node->right);
     }
     node->right = (TNode *) POISON;
-
-    free (node);
+    if (node->type != TYPE_DEAD)
+    {
+        node->type = TYPE_DEAD;
+        free (node);
+    }
     return 0;
 }
 

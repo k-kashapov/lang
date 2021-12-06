@@ -57,10 +57,14 @@ TNode *GetG (Trans *trans)
 {
     Require (trans, "Купил мужик шляпу");
 
-    GetDec (trans);
-    TNode *root = ST (Assn (trans), NULL);
-    GetDec (trans);
-    root->right = ST (Assn (trans), NULL);
+    TNode *root = ST (GetOP (trans), NULL);
+    TNode *curr = root;
+
+    while (!CheckTok (trans, "А"))
+    {
+        curr->right = ST (GetOP (trans), NULL);
+        curr        = curr->right;
+    }
 
     VisitNode (root, TreePrintLeftBracket, TreeNodePrint, TreePrintRightBracket);
 
@@ -97,11 +101,23 @@ TNode *GetP (Trans *trans)
     }
     else if (token->type == TYPE_ID)
     {
+        for (int func_id = 0; func_id < UnaryNum; func_id++)
+        {
+            if (token->data == UnaryFuncs[func_id])
+            {
+                TNode *action = GetTok (trans);
+                MovePtr (trans);
+                action->right = GetP (trans);
+                return action;
+            }
+        }
+
         for (int id = 0; id < trans->IdsNum; id++)
         {
             if (trans->IdsArr[id].hash == token->data)
             {
                 MovePtr (trans);
+                token->type = TYPE_VAR;
                 return token;
             }
         }
@@ -118,9 +134,38 @@ TNode *GetP (Trans *trans)
     }
 }
 
-TNode *GetT (Trans *trans)
+TNode *GetPow (Trans *trans)
 {
     TNode *val = GetP (trans);
+
+    if (CheckTok (trans, "^"))
+    {
+        TNode *action = GetTok (trans);
+        MovePtr (trans);
+
+        TNode *rVal   = GetP (trans);
+        action->left  = val;
+        action->right = rVal;
+        TNode *curr   = action;
+
+        while (CheckTok (trans, "^"))
+        {
+            TNode *new_action = GetTok (trans);
+            new_action->left  = curr->right;
+            curr->right       = new_action;
+            curr              = new_action;
+            curr->right       = GetP (trans);
+        }
+
+        val = action;
+    }
+
+    return val;
+}
+
+TNode *GetT (Trans *trans)
+{
+    TNode *val = GetPow (trans);
 
     if (CheckTok (trans, "*") ||
         CheckTok (trans, "/"))
@@ -128,7 +173,7 @@ TNode *GetT (Trans *trans)
         TNode *action = GetTok (trans);
         MovePtr (trans);
 
-        TNode *rVal   = GetP (trans);
+        TNode *rVal   = GetPow (trans);
         action->left  = val;
         action->right = rVal;
         TNode *curr   = action;
@@ -140,7 +185,7 @@ TNode *GetT (Trans *trans)
             new_action->left  = curr->right;
             curr->right       = new_action;
             curr              = new_action;
-            curr->right       = GetP (trans);
+            curr->right       = GetPow (trans);
         }
 
         val = action;
@@ -159,7 +204,7 @@ TNode *GetE (Trans *trans)
         TNode *action = GetTok (trans);
         MovePtr (trans);
 
-        TNode *rVal   = GetP (trans);
+        TNode *rVal   = GetPow (trans);
         action->left  = val;
         action->right = rVal;
         TNode *curr   = action;
@@ -171,7 +216,7 @@ TNode *GetE (Trans *trans)
             new_action->left  = curr->right;
             curr->right       = new_action;
             curr              = new_action;
-            curr->right       = GetP (trans);
+            curr->right       = GetPow (trans);
         }
 
         val = action;
@@ -180,45 +225,21 @@ TNode *GetE (Trans *trans)
     return val;
 }
 
-// int GetOP (Trans *trans)
-// {
-//     Require (trans, "-");
-//
-//     int val = 0;
-//     if (CheckString (trans, "Kuchiyose no Jutsu"))
-//     {
-//         val = GetDec (trans);
-//     }
-//     else
-//     {
-//         val = Assn (trans);
-//     }
-//
-//     Require (trans, "!");
-//     return val;
-// }
-//
-// int GetId (Trans *trans)
-// {
-//     int hash  = 0;
-//     int char_read = 1;
-//
-//     if (!isalpha (*trans->s))
-//     {
-//         SyntaxErr ("expected: letter; got: %s", trans->s);
-//     }
-//
-//     for (; isalpha (*trans->s); char_read++)
-//     {
-//         SEMANTIC
-//         (
-//             hash += *trans->s * char_read;
-//         )
-//         trans->s++;
-//     }
-//
-//     return hash;
-// }
+TNode *GetOP (Trans *trans)
+{
+    TNode *val = NULL;
+    while (CheckTok (trans, "\""))
+    {
+        int get_err = GetDec (trans);
+        if (get_err) return NULL;
+        Require (trans, ".");
+    }
+
+    val = Assn (trans);
+
+    Require (trans, ".");
+    return val;
+}
 
 TNode *Assn (Trans *trans)
 {
@@ -235,6 +256,7 @@ TNode *Assn (Trans *trans)
     {
         if (trans->IdsArr[id].hash == var->data)
         {
+            var->type = TYPE_VAR;
             return CreateNode ('=', TYPE_OP, var->declared, var, value);
         }
     }
@@ -269,4 +291,19 @@ int GetDec (Trans *trans)
 
     trans->IdsArr[trans->IdsNum++] = new_id;
     return 0;
+}
+
+void FreeTransTree (TNode *root, TNode **nodes, int nodesNum)
+{
+    for (int node = 0; node < nodesNum; node++)
+    {
+        nodes[node]->type = TYPE_DEAD;
+    }
+
+    DestructNode (root);
+
+    for (int node = 0; node < nodesNum; node++)
+    {
+        free (nodes[node]);
+    }
 }

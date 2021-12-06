@@ -12,7 +12,8 @@ int main (int argc, const char **argv)
         return -1;
     }
 
-    TNode **nodes = LexicAnalysis (code);
+    int nodesNum  = 0;
+    TNode **nodes = LexicAnalysis (code, &nodesNum);
 
     Trans trans  = {};
     trans.IdsArr = (Id *) calloc (INIT_IDS_NUM, sizeof (Id));
@@ -24,9 +25,11 @@ int main (int argc, const char **argv)
     CreateNodeImage (res, "res.png");
     CloseGraphFile();
 
-    printf ("DIO!!!!!!!\n");
+    printf ("\nDIO!!!!!!!\n");
 
-    DestructNode (res); // TODO ALL Nodes destruction
+    FreeTransTree (res, nodes, nodesNum);
+
+    free (trans.IdsArr);
     free (code);
     free (nodes);
 
