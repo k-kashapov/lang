@@ -15,9 +15,10 @@ int main (int argc, const char **argv)
     int nodesNum  = 0;
     TNode **nodes = LexicAnalysis (code, &nodesNum);
 
-    Trans trans  = {};
-    trans.IdsArr = (Id *) calloc (INIT_IDS_NUM, sizeof (Id));
-    trans.s      = nodes;
+    Trans trans   = {};
+    trans.IdsArr  = (Id *)     calloc (INIT_IDS_NUM, sizeof (Id));
+    trans.FuncArr = (FuncId *) calloc (INIT_IDS_NUM, sizeof (FuncId));
+    trans.s       = nodes;
 
     TNode *res = GetG (&trans);
 
@@ -30,6 +31,7 @@ int main (int argc, const char **argv)
     FreeTransTree (res, nodes, nodesNum);
 
     free (trans.IdsArr);
+    free (trans.FuncArr);
     free (code);
     free (nodes);
 

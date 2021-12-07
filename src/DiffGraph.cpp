@@ -51,6 +51,10 @@ void PrintNodeDot (TNode *node)
 
     switch (node->type)
     {
+        case TYPE_FUNC:
+            color = "sandybrown";
+            shape = "egg";
+            break;
         case TYPE_STATEMENT:
             color = "gold";
             shape = "octagon";
@@ -97,7 +101,15 @@ void PrintNodeDot (TNode *node)
 
     switch (node->type)
     {
-        case TYPE_VAR: [[fallthrough]];
+        case TYPE_FUNC:
+            fprintf (Graph_file, "%s", node->declared);
+            break;
+        case TYPE_VAR:
+            {
+                int line_len = (int) (strchr (node->declared, '\"') - node->declared);
+                fprintf (Graph_file, "%.*s", line_len, node->declared);
+                break;
+            }
         case TYPE_ID:
             {
                 int line_len = (int) (strchr (node->declared, ' ') - node->declared);

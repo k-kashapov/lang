@@ -87,7 +87,10 @@ static TNode *GetLexToken (LexicAn *lan)
         case '+': [[fallthrough]];
         case '-': [[fallthrough]];
         case '*': [[fallthrough]];
-        case '/':
+        case '/': [[fallthrough]];
+        case ',': [[fallthrough]];
+        case ':': [[fallthrough]];
+        case '\"':
             {
                 char sign = *lan->str;
                 MovePtr (lan);
@@ -98,9 +101,6 @@ static TNode *GetLexToken (LexicAn *lan)
         case '.':
             MovePtr (lan);
             return CreateNode ('.', TYPE_ID, declared);
-        case '\"':
-            MovePtr (lan);
-            return CreateNode ('\"', TYPE_ID, declared);
         default:
             SyntaxErr ("Unknown snymbol: %c (%d): %s",
                        *lan->str, *lan->str, lan->str);

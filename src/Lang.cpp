@@ -46,6 +46,7 @@ static int Require (Trans *trans, const char *req)
             free (req_str);
             return REQUIRE_FAIL;
         }
+
         MovePtr (trans);
     }
 
@@ -78,7 +79,8 @@ TNode *GetN (Trans *trans)
 
     if (node->type != TYPE_CONST)
     {
-        SyntaxErr ("Invalid type: expected CONST, got %d\n", node->type);
+        long line_len = strchr (node->declared, '\n') - node->declared;
+        SyntaxErr ("Invalid type: expected CONST, got %.*s (%d)\n", line_len, node->declared, node->type);
         return NULL;
     }
     MovePtr (trans);
@@ -89,14 +91,13 @@ TNode *GetN (Trans *trans)
 TNode *GetP (Trans *trans)
 {
     TNode *token = GetTok (trans);
-    if (CheckTok (trans, "Кто")) // Left bracket '('
+
+    if (CheckTok (trans, "LEFT")) // Left bracket '('
     {
         MovePtr (trans);
-        Require (trans, "прочитал");
-
         TNode *node = GetE (trans);
 
-        Require (trans, "тот сдохнет"); // Right bracket ')'
+        Require (trans, "RIGHT"); // Right bracket ')'
         return node;
     }
     else if (token->type == TYPE_ID)
@@ -225,14 +226,128 @@ TNode *GetE (Trans *trans)
     return val;
 }
 
+TNode *GetFunc (Trans *trans)
+{
+    Require (trans, "Господа , а не сыграть ли нам в новую игру .");
+    TNode *val = CreateNode (SimpleHash ("def", 4), TYPE_FUNC, "def");
+
+    TNode *name = GetTok (trans);
+    MovePtr (trans);
+
+    if (name->type != TYPE_ID)
+    {
+        long line_len = strchr (name->declared, '\n') - name->declared;
+        SyntaxErr ("Invalid function type: %d at %.*s\n",
+                   name->type, line_len, name->declared);
+        return NULL;
+    }
+
+    Require (trans, "называется .");
+    val->left   = name;
+    TNode *curr = val;
+
+    while (!CheckTok (trans, "Ржевский"))
+    {
+        curr->right = ST (GetOP (trans), NULL);
+        curr        = curr->right;
+    }
+
+    Require (trans, "Ржевский спокойно и невозмутимо положил карты на стол .");
+    return val;
+}
+
+TNode *GetIF (Trans *trans)
+{
+    Require (trans, "Кто прочитал");
+
+    TNode *val = CreateNode (SimpleHash ("if", 2), TYPE_FUNC, "if");
+
+    val->left   = ST (GetE (trans), NULL);
+    TNode *curr = val->left;
+
+    while (!CheckTok (trans, "тот"))
+    {
+        curr->right = ST (GetP (trans), NULL);
+        curr        = curr->right;
+    }
+
+    Require (trans, "тот");
+
+    val->right = CreateNode (SimpleHash ("TODO?", 5), TYPE_FUNC, "TODO?");
+    curr       = val->right;
+    curr->left = ST (GetOP (trans), NULL);
+    curr       = curr->left;
+
+    while (!CheckTok (trans, "Ставь"))
+    {
+        curr->right = ST (GetOP (trans), NULL);
+        curr        = curr->right;
+    }
+
+    Require (trans, "Ставь лайк");
+
+    curr = val->right;
+    while (!CheckTok (trans, "и"))
+    {
+        curr->right = ST (GetOP (trans), NULL);
+        curr        = curr->right;
+    }
+
+    Require (trans, "и можешь считать , что не читал .");
+
+    return val;
+}
+
+TNode *GetWhile (Trans *trans)
+{
+    Require (trans, "В дверь постучали");
+    TNode *val  = CreateNode (SimpleHash ("while", 5), TYPE_FUNC, "while");
+    val->left   = ST (GetE (trans), NULL);
+    TNode *curr = val->left;
+
+    while (!CheckTok (trans, "раз"))
+    {
+        curr->right = ST (GetE (trans), NULL);
+        curr        = curr->right;
+    }
+
+    Require (trans, "раз");
+
+    val->right = ST (GetOP (trans), NULL);
+    curr       = val->right;
+
+    while (!CheckTok (trans, "Дверь"))
+    {
+        curr->right = ST (GetOP (trans), NULL);
+        curr        = curr->right;
+    }
+
+    Require (trans, "Дверь отвалилась .");
+
+    return val;
+}
+
 TNode *GetOP (Trans *trans)
 {
     TNode *val = NULL;
     while (CheckTok (trans, "\""))
     {
-        int get_err = GetDec (trans);
-        if (get_err) return NULL;
-        Require (trans, ".");
+        return GetDec (trans);
+    }
+
+    if (CheckTok (trans, "Господа"))
+    {
+        return GetFunc (trans);
+    }
+
+    if (CheckTok (trans, "Кто"))
+    {
+        return GetIF (trans);
+    }
+
+    if (CheckTok (trans, "В"))
+    {
+        return GetWhile (trans);
     }
 
     val = Assn (trans);
@@ -266,14 +381,14 @@ TNode *Assn (Trans *trans)
     return NULL;
 }
 
-int GetDec (Trans *trans)
+TNode *GetDec (Trans *trans)
 {
-    if (Require (trans, "\"")) return REDECLARATION;
+    if (Require (trans, "\"")) return NULL;
 
     TNode *idtok = GetTok (trans);
     MovePtr (trans);
 
-    if (Require (trans, "\" - подумал Штирлиц")) return REDECLARATION;
+    if (Require (trans, "\" - подумал Штирлиц .")) return NULL;
 
     for (int id = 0; id < trans->IdsNum; id++)
     {
@@ -282,7 +397,7 @@ int GetDec (Trans *trans)
             long line_len = strchr (idtok->declared, '\n') - idtok->declared;
             SyntaxErr ("Re-declaration of variable: %.*s\n",
                        line_len, idtok->declared);
-            return REDECLARATION;
+            return NULL;
         }
     }
 
@@ -290,7 +405,12 @@ int GetDec (Trans *trans)
     new_id.hash  = idtok->data;
 
     trans->IdsArr[trans->IdsNum++] = new_id;
-    return 0;
+
+    idtok->type = TYPE_VAR;
+    TNode *val = CreateNode (SimpleHash ("=", 1), TYPE_OP, idtok->declared, idtok);
+    val->right = CreateNode (0, TYPE_CONST);
+
+    return val;
 }
 
 void FreeTransTree (TNode *root, TNode **nodes, int nodesNum)

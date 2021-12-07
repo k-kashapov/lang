@@ -14,11 +14,19 @@ struct Id
     int64_t hash;
 };
 
+struct FuncId
+{
+    int64_t hash;
+    int args_num;
+};
+
 struct Trans
 {
-    Id    *IdsArr;
-    int   IdsNum;
-    TNode **s;
+    Id     *IdsArr;
+    int    IdsNum;
+    TNode  **s;
+    FuncId *FuncArr;
+    int     FuncsNum;
 };
 
 enum LANG_EXIT_CODES
@@ -55,11 +63,17 @@ TNode *Assn (Trans *trans);
 
 TNode *GetG (Trans *trans);
 
+TNode *GetFunc (Trans *trans);
+
+TNode *GetIF (Trans *trans);
+
+TNode *GetWhile (Trans *trans);
+
 TNode *GetOP (Trans *trans);
 
 int SyntaxErr (const char *msg, ...);
 
-int GetDec (Trans *trans);
+TNode *GetDec (Trans *trans);
 
 TNode *ReadToken (const char *str);
 
