@@ -24,6 +24,7 @@ struct TNode
     tree_elem data;
     int type;
     const char *declared;
+    int len;
     TNode *left;
     TNode *right;
     TNode *parent;

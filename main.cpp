@@ -26,8 +26,6 @@ int main (int argc, const char **argv)
     CreateNodeImage (res, "res.png");
     CloseGraphFile();
 
-    printf ("\nDIO!!!!!!!\n");
-
     FreeTransTree (res, nodes, nodesNum);
 
     free (trans.IdsArr);

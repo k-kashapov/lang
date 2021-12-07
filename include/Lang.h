@@ -6,7 +6,7 @@
 
 const int INIT_IDS_NUM = 10;
 
-const char NotAlpha[] = "0123456789-+!?*/ \"\n\t\r(){}[]^\\,.";
+const char NotAlpha[] = "0123456789:-+!?*/ \"\n\t\r(){}[]^\\,.";
 const int  AlphaNum   = sizeof (NotAlpha) / sizeof (char);
 
 struct Id
@@ -49,6 +49,10 @@ const int UnaryNum = sizeof (UnaryFuncs) / sizeof (int64_t);
 
 int IsAlpha (char val);
 
+TNode *CreateID (const char *id);
+
+TNode *GetSt (Trans *trans, const char *end_cond, TNode **st_end = NULL);
+
 TNode *GetN (Trans *trans);
 
 TNode *GetP (Trans *trans);
@@ -64,6 +68,8 @@ TNode *Assn (Trans *trans);
 TNode *GetG (Trans *trans);
 
 TNode *GetFunc (Trans *trans);
+
+TNode *GetCall (Trans *trans);
 
 TNode *GetIF (Trans *trans);
 

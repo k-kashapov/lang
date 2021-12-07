@@ -62,24 +62,34 @@ static TNode *GetLexToken (LexicAn *lan)
         int     bytes_read = 1;
         do
         {
+            printf ("%c", *lan->str);
             hash += *lan->str * bytes_read;
             bytes_read++;
             lan->str++;
         } while (IsAlpha (*lan->str));
 
-        return CreateNode (hash, TYPE_ID, declared);
+        printf (" ");
+    
+        TNode *node = CreateNode (hash, TYPE_ID, declared);
+        node->len   = bytes_read - 1;
+
+        return node;
     }
     else if (*lan->str >= '0' && *lan->str <= '9')
     {
         int64_t val = 0;
+        int len     = 0;
 
         do
         {
+            len++;
             val = val * 10 + (*lan->str - '0');
             MovePtr (lan);
         } while (*lan->str >= '0' && *lan->str <= '9');
 
-        return CreateNode (val, TYPE_CONST, declared);
+        TNode *node = CreateNode (val, TYPE_CONST, declared);
+        node->len   = len;
+        return node;
     }
     else switch (*lan->str)
     {
@@ -92,15 +102,20 @@ static TNode *GetLexToken (LexicAn *lan)
         case ':': [[fallthrough]];
         case '\"':
             {
-                char sign = *lan->str;
+                TNode *node = CreateNode (*lan->str, TYPE_OP, declared);
+                node->len = 1;
                 MovePtr (lan);
-                return CreateNode (sign, TYPE_OP, declared);
+                return node;
             }
         case '!': [[fallthrough]];
         case '?': [[fallthrough]];
         case '.':
-            MovePtr (lan);
-            return CreateNode ('.', TYPE_ID, declared);
+            {
+                TNode *node = CreateNode ('.', TYPE_ID, declared);
+                node->len = 1;
+                MovePtr (lan);
+                return node;
+            }
         default:
             SyntaxErr ("Unknown snymbol: %c (%d): %s",
                        *lan->str, *lan->str, lan->str);
