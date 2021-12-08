@@ -7,7 +7,7 @@
 
 const int INIT_IDS_NUM = 10;
 
-const char NotAlpha[] = "0123456789:-+!?*/ \"\n\t\r(){}[]^\\,.";
+const char NotAlpha[] = "0123456789:-+!?*/ \"\n\t\r(){}[]^\\,.=";
 const int  AlphaNum   = sizeof (NotAlpha) / sizeof (char);
 
 struct Id
@@ -47,6 +47,8 @@ const int64_t UnaryFuncs[] =
 };
 
 const int UnaryNum = sizeof (UnaryFuncs) / sizeof (int64_t);
+
+TNode *BuildTreeFromBase (Config *io_config, const char **buffer);
 
 int IsAlpha (char val);
 

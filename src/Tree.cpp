@@ -196,6 +196,8 @@ int64_t NodeOk (TNode *node)
 
 int DestructNode (TNode *node)
 {
+    if (!node) return 0;
+
     if (node->left)
     {
         DestructNode (node->left);

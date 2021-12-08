@@ -31,7 +31,6 @@ static void PrintNodeToBase (TNode *node)
         case TYPE_VAR:
             fprintf (Base_file, "\"%.*s\"", node->len, node->declared);
             break;
-        case TYPE_FUNC: [[fallthrough]];
         case TYPE_ID:
             fprintf (Base_file, "%.*s", node->len, node->declared);
             break;

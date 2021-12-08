@@ -56,7 +56,7 @@ static int Require (Trans *trans, const char *req)
 TNode *CreateID (const char *id)
 {
     int len     = (int) strlen (id);
-    TNode *node = CreateNode (SimpleHash (id, len), TYPE_FUNC, id);
+    TNode *node = CreateNode (SimpleHash (id, len), TYPE_ID, id);
     node->len   = len;
     return node;
 }
@@ -463,6 +463,7 @@ TNode *Assn (Trans *trans)
         {
             var->type   = TYPE_VAR;
             TNode *node = CreateID ("=");
+            node->type  = TYPE_OP;
             node->left  = var;
             node->right = value;
             return node;

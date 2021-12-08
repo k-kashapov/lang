@@ -51,10 +51,6 @@ void PrintNodeDot (TNode *node)
 
     switch (node->type)
     {
-        case TYPE_FUNC:
-            color = "sandybrown";
-            shape = "egg";
-            break;
         case TYPE_STATEMENT:
             color = "gold";
             shape = "octagon";
@@ -101,7 +97,6 @@ void PrintNodeDot (TNode *node)
 
     switch (node->type)
     {
-        case TYPE_FUNC: [[fallthrough]];
         case TYPE_VAR:  [[fallthrough]];
         case TYPE_ID:
             {
@@ -140,7 +135,7 @@ int CreateNodeImage (TNode *node, const char *name)
 
     char dot_command[100] = "dot dotInput.dot -Tpng -o ";
     strcat (dot_command, name);
-    system (dot_command);
+    if (system (dot_command)) exit (-1);
 
     char eog_command[100] = "eog ";
     strcat (eog_command, name);
