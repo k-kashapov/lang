@@ -1,3 +1,4 @@
+#pragma once
 #include <stdarg.h>
 #include "files.h"
 #include "Tree.h"
@@ -92,5 +93,11 @@ void PrintNodeDot (TNode *node);
 int CreateNodeImage (TNode *node, const char *name);
 
 void CloseGraphFile (void);
+
+void OpenBaseFile (const char *name);
+
+int SaveNode (TNode *node, const char *name);
+
+void CloseBaseFile (void);
 
 void FreeTransTree (TNode *root, TNode **nodes, int nodesNum);

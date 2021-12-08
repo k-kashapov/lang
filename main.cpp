@@ -1,3 +1,4 @@
+#include "Logs.h"
 #include "Lang.h"
 
 int main (int argc, const char **argv)
@@ -22,9 +23,9 @@ int main (int argc, const char **argv)
 
     TNode *res = GetG (&trans);
 
-    OpenGraphFile ("dotInput.dot");
     CreateNodeImage (res, "res.png");
-    CloseGraphFile();
+
+    SaveNode (res, "base.txt");
 
     FreeTransTree (res, nodes, nodesNum);
 
