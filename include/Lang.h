@@ -46,6 +46,38 @@ const int64_t UnaryFuncs[] =
     SimpleHash ("diff", 4)
 };
 
+#define SERVICE_HASH(val) SimpleHash (val, strlen (val))
+const int64_t ServiceNodes[] =
+{
+    SERVICE_HASH ("Биба"),
+    SERVICE_HASH ("Боба"),
+    SERVICE_HASH ("define"),
+    SERVICE_HASH ("function"),
+    SERVICE_HASH ("parameter"),
+    SERVICE_HASH ("call"),
+    SERVICE_HASH ("if"),
+    SERVICE_HASH ("decision"),
+    SERVICE_HASH ("while"),
+    SERVICE_HASH ("return")
+};
+#undef SERVICE_HASH
+
+enum ServiceHash
+{
+    BIBA = 0,
+    BOBA,
+    DEF,
+    FUNC,
+    PARAM,
+    CALL,
+    IF,
+    DECISION,
+    WHILE,
+    RET,
+};
+
+#define HASH_EQ(node, hash_num) (node->data == ServiceNodes[hash_num])
+
 const int UnaryNum = sizeof (UnaryFuncs) / sizeof (int64_t);
 
 TNode *BuildTreeFromBase (Config *io_config, const char **buffer);
@@ -101,5 +133,7 @@ void OpenBaseFile (const char *name);
 int SaveNode (TNode *node, const char *name);
 
 void CloseBaseFile (void);
+
+int Translate (TNode *root, const char *name);
 
 void FreeTransTree (TNode *root, TNode **nodes, int nodesNum);

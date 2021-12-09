@@ -24,6 +24,8 @@ int main (int argc, const char **argv)
 
     TNode *res = GetG (&trans);
 
+    Translate (res, "asm.txt");
+
     CreateNodeImage (res, "res.png");
 
     SaveNode (res, "base.txt");

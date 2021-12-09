@@ -109,7 +109,7 @@ TNode *GetP (Trans *trans)
 {
     TNode *token = GetTok (trans);
 
-    if (CheckTok (trans, "Биба")) // Left bracket '('
+    if (HASH_EQ (token, BIBA)) // Left bracket '('
     {
         MovePtr (trans);
         TNode *node = GetE (trans);
