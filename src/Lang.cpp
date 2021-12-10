@@ -1,7 +1,5 @@
 #include "Lang.h"
 
-#define ST(l, r) CreateNode (0, TYPE_STATEMENT, NULL, l, r)
-
 int64_t SimpleHash (const void *data, int len)
 {
     int64_t hash        = 0;
@@ -134,14 +132,11 @@ TNode *GetP (Trans *trans)
             }
         }
 
-        for (int id = 0; id < trans->IdsNum; id++)
+        if (FindId (TRANS_IDS, token->data) >= 0)
         {
-            if (trans->IdsArr[id].hash == token->data)
-            {
-                MovePtr (trans);
-                token->type = TYPE_VAR;
-                return token;
-            }
+            MovePtr (trans);
+            token->type = TYPE_VAR;
+            return token;
         }
 
         SyntaxErr ("Using an undeclared variable: %.*s\n",
@@ -273,9 +268,7 @@ TNode *GetFunc (Trans *trans)
     curr        = curr->right;
     curr->right = GetTok (trans);
 
-    Id local_var                   = {};
-    local_var.hash                 = curr->right->data;
-    trans->IdsArr[trans->IdsNum++] = local_var;
+    $ AddId (TRANS_IDS, curr->right->data);
 
     if (curr->right->type != TYPE_ID)
     {
@@ -291,8 +284,7 @@ TNode *GetFunc (Trans *trans)
         curr        = curr->left;
         curr->right = GetTok (trans);
 
-        local_var.hash                 = curr->right->data;
-        trans->IdsArr[trans->IdsNum++] = local_var;
+        $ AddId (TRANS_IDS, curr->right->data);
 
         if (curr->right->type != TYPE_ID)
         {
@@ -320,10 +312,7 @@ TNode *GetFunc (Trans *trans)
 
     Require (trans, ", господа .");
 
-    for (int curr_id = initIds; curr_id < trans->IdsNum; curr_id++)
-    {
-        trans->IdsArr[curr_id] = {};
-    }
+    $ RmId (TRANS_IDS, trans->IdsNum - initIds);
 
     return val;
 }
@@ -373,6 +362,7 @@ TNode *GetCall (Trans *trans)
         DestructNode (val);
         return NULL;
     }
+
     MovePtr (trans);
     Require (trans, ".");
 
@@ -402,11 +392,13 @@ TNode *GetIF (Trans *trans)
 TNode *GetWhile (Trans *trans)
 {
     Require (trans, "В дверь постучали");
+
     TNode *val  = CreateID ("while");
+
     val->right  = GetE (trans);
     Require (trans, "раз .");
-    val->left   = GetSt (trans, "Дверь");
 
+    val->left   = GetSt (trans, "Дверь");
     Require (trans, "Дверь отвалилась .");
 
     return val;
@@ -457,17 +449,14 @@ TNode *Assn (Trans *trans)
 
     TNode *value = GetE (trans);
 
-    for (int id = 0; id < trans->IdsNum; id++)
+    if (FindId (TRANS_IDS, var->data) >= 0)
     {
-        if (trans->IdsArr[id].hash == var->data)
-        {
-            var->type   = TYPE_VAR;
-            TNode *node = CreateID ("=");
-            node->type  = TYPE_OP;
-            node->left  = var;
-            node->right = value;
-            return node;
-        }
+        var->type   = TYPE_VAR;
+        TNode *node = CreateID ("=");
+        node->type  = TYPE_OP;
+        node->left  = var;
+        node->right = value;
+        return node;
     }
 
     SyntaxErr ("Using an undeclared variable: %.*s\n", var->len, var->declared);
@@ -483,20 +472,14 @@ TNode *GetDec (Trans *trans)
 
     if (Require (trans, "\" - подумал Штирлиц .")) return NULL;
 
-    for (int id = 0; id < trans->IdsNum; id++)
+    if (FindId (TRANS_IDS, idtok->data) >= 0)
     {
-        if (trans->IdsArr[id].hash == idtok->data)
-        {
-            SyntaxErr ("Re-declaration of variable: %.*s\n",
-                       idtok->len, idtok->declared);
-            return NULL;
-        }
+        SyntaxErr ("Re-declaration of variable: %.*s\n",
+                   idtok->len, idtok->declared);
+        return NULL;
     }
 
-    Id new_id    = {};
-    new_id.hash  = idtok->data;
-
-    trans->IdsArr[trans->IdsNum++] = new_id;
+    $ AddId (TRANS_IDS, idtok->data);
 
     idtok->type     = TYPE_VAR;
     TNode *val      = CreateNode (SimpleHash ("=", 1), TYPE_OP, idtok->declared, idtok);

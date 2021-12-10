@@ -1,8 +1,8 @@
-#include "Logs.h"
 #include "Lang.h"
 
 int main (int argc, const char **argv)
 {
+
     OpenLogFile ("LangLog.html", "wt");
     Config io_config = {};
     GetArgs (argc, argv, &io_config);
@@ -31,6 +31,7 @@ int main (int argc, const char **argv)
     SaveNode (res, "base.txt");
 
     FreeTransTree (res, nodes, nodesNum);
+    CloseLogFile ();
 
     free (trans.IdsArr);
     free (trans.FuncArr);

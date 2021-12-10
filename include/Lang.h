@@ -1,9 +1,9 @@
 #pragma once
+
+#include "Logs.h"
 #include <stdarg.h>
 #include "files.h"
 #include "Tree.h"
-
-#define SEMANTIC(cmd) cmd
 
 const int INIT_IDS_NUM = 10;
 
@@ -76,7 +76,11 @@ enum ServiceHash
     RET,
 };
 
+#define TRANS_IDS &trans->IdsArr, &trans->IdsNum
+
 #define HASH_EQ(node, hash_num) (node->data == ServiceNodes[hash_num])
+#define ST(l, r)                CreateNode (0, TYPE_STATEMENT, NULL, l, r)
+#define IDEXISTS(target)        (FindId (TRANS_IDS, target) >= 0)
 
 const int UnaryNum = sizeof (UnaryFuncs) / sizeof (int64_t);
 
@@ -137,3 +141,9 @@ void CloseBaseFile (void);
 int Translate (TNode *root, const char *name);
 
 void FreeTransTree (TNode *root, TNode **nodes, int nodesNum);
+
+int AddId (Id **IdsArr, int *IdsNum, int64_t hash);
+
+int FindId (Id **IdsArr, int *IdsNum, int64_t hash);
+
+int RmId (Id **IdsArr, int *IdsNum, int num = 1);

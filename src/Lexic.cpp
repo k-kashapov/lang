@@ -69,7 +69,7 @@ static TNode *GetLexToken (LexicAn *lan)
         } while (IsAlpha (*lan->str));
 
         printf (" ");
-    
+
         TNode *node = CreateNode (hash, TYPE_ID, declared);
         node->len   = bytes_read - 1;
 

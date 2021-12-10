@@ -87,6 +87,7 @@ void PrintNodeDot (TNode *node)
         default:
             printf ("Graph build (%d): Invalid node type: %d, node %p\n", __LINE__, node->type, node);
     }
+
     fprintf (Graph_file,
                 "NODE%p"
                 "["
