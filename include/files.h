@@ -1,4 +1,5 @@
-#pragma once
+#ifndef FILES_H
+#define FILES_H
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -108,3 +109,5 @@ int show_res (File_info *source, const char * output_file);
 void free_info (File_info *info);
 
 int GetArgs (int argc, const char **argv, Config *curr_config);
+
+#endif

@@ -1,4 +1,5 @@
-#pragma once
+#ifndef LANG_H
+#define LANG_H
 
 #include "Logs.h"
 #include <stdarg.h>
@@ -90,7 +91,7 @@ int IsAlpha (char val);
 
 TNode *CreateID (const char *id);
 
-TNode *GetSt (Trans *trans, const char *end_cond, TNode **st_end = NULL);
+TNode *GetSt (Trans *trans, const char *end_cond);
 
 TNode *GetN (Trans *trans);
 
@@ -147,3 +148,5 @@ int AddId (Id **IdsArr, int *IdsNum, int64_t hash);
 int FindId (Id **IdsArr, int *IdsNum, int64_t hash);
 
 int RmId (Id **IdsArr, int *IdsNum, int num = 1);
+
+#endif

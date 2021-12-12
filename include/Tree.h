@@ -1,3 +1,6 @@
+#ifndef TREE_H
+#define TREE_H
+
 #include <malloc.h>
 #include <stdlib.h>
 #include <stdio.h>
@@ -73,6 +76,8 @@ void TreePrintRightBracket (TNode *node);
 
 void TreeNodePrint (TNode *node);
 
+void TreeLenPrint (TNode *node);
+
 int GetChildrenCount (TNode *node);
 
 int NodesEqual (TNode *first, TNode *second);
@@ -86,3 +91,5 @@ int64_t NodeOk (TNode *node);
 int DestructNode (TNode *node);
 
 int DestructTree (Tree *tree);
+
+#endif

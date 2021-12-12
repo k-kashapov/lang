@@ -52,7 +52,7 @@ static void MovePtr (LexicAn *la)
 
 static TNode *GetLexToken (LexicAn *lan)
 {
-    printf ("char = %c; (%3d); ", *lan->str, *lan->str);
+    LogMsg ("char = %c%c; (%3d); ", lan->str[0], lan->str[1], *lan->str);
 
     const char *declared = lan->str;
 
@@ -62,13 +62,11 @@ static TNode *GetLexToken (LexicAn *lan)
         int     bytes_read = 1;
         do
         {
-            printf ("%c", *lan->str);
+            LogMsg ("%c", *lan->str);
             hash += *lan->str * bytes_read;
             bytes_read++;
             lan->str++;
         } while (IsAlpha (*lan->str));
-
-        printf (" ");
 
         TNode *node = CreateNode (hash, TYPE_ID, declared);
         node->len   = bytes_read - 1;
@@ -132,7 +130,7 @@ static int AnalyzeString (LexicAn *lan)
     while (*lan->str != '\0' && lan->str - init_str < code_len)
     {
         TNode *tok = GetLexToken (lan);
-        printf ("%ld\n", tok->data);
+        LogMsg (" %ld\n", tok->data);
         if (!tok) return -1;
 
         if (lan->nodesNum >= lan->nodesCap)

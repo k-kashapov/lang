@@ -53,37 +53,32 @@ static int Require (Trans *trans, const char *req)
 
 TNode *CreateID (const char *id)
 {
-    int len     = (int) strlen (id);
+    $$ int len   = (int) strlen (id);
     TNode *node = CreateNode (SimpleHash (id, len), TYPE_ID, id);
     node->len   = len;
     return node;
 }
 
-TNode *GetSt (Trans *trans, const char *end_cond, TNode **st_end)
+TNode *GetSt (Trans *trans, const char *end_cond)
 {
-    if (!CheckTok (trans, end_cond))
+    if (CheckTok (trans, end_cond)) return NULL;
+
+    $ TNode *stmt = ST (NULL, GetOP (trans));
+    TNode *curr = stmt;
+
+    while (!CheckTok (trans, end_cond))
     {
-        TNode *curr = ST (NULL, GetOP (trans));
-        curr->left  = GetSt (trans, end_cond, st_end);
-
-        if (st_end && !curr->left)
-        {
-            *st_end = curr;
-        }
-
-        // CreateNodeImage (curr, "tmp.png");
-        return curr;
+        $ curr = ST (curr, GetOP (trans));
     }
 
-    return NULL;
+    return curr;
 }
 
 TNode *GetG (Trans *trans)
 {
-    Require (trans, "Купил мужик шляпу");
+    $ Require (trans, "Купил мужик шляпу");
 
-    TNode *root = ST (NULL, GetOP (trans));
-    root->left = GetSt (trans, "А");
+    TNode *root = GetSt (trans, "А");
 
     Require (trans, "А она ему как раз");
     return root;
@@ -91,11 +86,12 @@ TNode *GetG (Trans *trans)
 
 TNode *GetN (Trans *trans)
 {
-    TNode *node = GetTok (trans);
+    $$ TNode *node = GetTok (trans);
 
     if (node->type != TYPE_CONST)
     {
-        SyntaxErr ("Invalid type: expected CONST, got %.*s (%d)\n", node->len, node->declared, node->type);
+        SyntaxErr ("Invalid type: expected CONST, got %.*s (%d)\n",
+                   node->len, node->declared, node->type);
         return NULL;
     }
     MovePtr (trans);
@@ -105,7 +101,7 @@ TNode *GetN (Trans *trans)
 
 TNode *GetP (Trans *trans)
 {
-    TNode *token = GetTok (trans);
+    $$ TNode *token = GetTok (trans);
 
     if (HASH_EQ (token, BIBA)) // Left bracket '('
     {
@@ -152,7 +148,7 @@ TNode *GetP (Trans *trans)
 
 TNode *GetPow (Trans *trans)
 {
-    TNode *val = GetP (trans);
+    $$ TNode *val = GetP (trans);
 
     if (CheckTok (trans, "^"))
     {
@@ -181,7 +177,7 @@ TNode *GetPow (Trans *trans)
 
 TNode *GetT (Trans *trans)
 {
-    TNode *val = GetPow (trans);
+    $$ TNode *val = GetPow (trans);
 
     if (CheckTok (trans, "*") ||
         CheckTok (trans, "/"))
@@ -212,7 +208,7 @@ TNode *GetT (Trans *trans)
 
 TNode *GetE (Trans *trans)
 {
-    TNode *val = GetT (trans);
+    $$ TNode *val = GetT (trans);
 
     if (CheckTok (trans, "+") ||
         CheckTok (trans, "-"))
@@ -243,7 +239,7 @@ TNode *GetE (Trans *trans)
 
 TNode *GetFunc (Trans *trans)
 {
-    Require (trans, "Господа , а не сыграть ли нам в новую игру .");
+    $ Require (trans, "Господа , а не сыграть ли нам в новую игру .");
     TNode *val = CreateID ("define");
 
     int initIds = trans->IdsNum;
@@ -296,19 +292,19 @@ TNode *GetFunc (Trans *trans)
     }
     MovePtr (trans);
 
-    val->right = ST (NULL, GetOP (trans));
-    curr       = val->right;
+    TNode *body = GetSt (trans, "Козырная");
 
-    TNode *last_st = NULL;
-    curr->left = GetSt (trans, "Козырная", &last_st);
     MovePtr (trans);
+
+    TNode *ret = CreateID ("return");
+    body  = ST (body, ret);
 
     if (!CheckTok (trans, ","))
     {
-        TNode *ret = CreateID ("return");
         ret->right = GetE (trans);
-        last_st->left = ret;
     }
+
+    val->right = body;
 
     Require (trans, ", господа .");
 
@@ -319,7 +315,7 @@ TNode *GetFunc (Trans *trans)
 
 TNode *GetCall (Trans *trans)
 {
-    Require (trans, "Анекдот : Заходят как - то в бар");
+    $ Require (trans, "Анекдот : Заходят как - то в бар");
 
     TNode *val  = CreateID ("call");
     val->right  = CreateID ("function");
@@ -371,27 +367,27 @@ TNode *GetCall (Trans *trans)
 
 TNode *GetIF (Trans *trans)
 {
-    Require (trans, "Кто прочитал");
+    $ Require (trans, "Кто прочитал");
 
     TNode *val = CreateID ("if");
 
     val->right  = GetE (trans);
     val->left   = CreateID ("decision");
     TNode *curr = val->left;
-    Require (trans, "тот сдохнет .");
+    $ Require (trans, "тот сдохнет .");
 
     curr->right = GetSt (trans, "Ставь");
-    Require (trans, "Ставь лайк");
+    $ Require (trans, "Ставь лайк");
 
     curr->left = GetSt (trans, "и");
-    Require (trans, "и можешь считать , что не читал .");
+    $ Require (trans, "и можешь считать , что не читал .");
 
     return val;
 }
 
 TNode *GetWhile (Trans *trans)
 {
-    Require (trans, "В дверь постучали");
+    $ Require (trans, "В дверь постучали");
 
     TNode *val  = CreateID ("while");
 
@@ -406,7 +402,7 @@ TNode *GetWhile (Trans *trans)
 
 TNode *GetOP (Trans *trans)
 {
-    TNode *val = NULL;
+    $ TNode *val = NULL;
     while (CheckTok (trans, "\""))
     {
         return GetDec (trans);
@@ -440,7 +436,7 @@ TNode *GetOP (Trans *trans)
 
 TNode *Assn (Trans *trans)
 {
-    Require (trans, "Этим");
+    $ Require (trans, "Этим");
 
     TNode *var = GetTok (trans);
     MovePtr (trans);
@@ -465,7 +461,7 @@ TNode *Assn (Trans *trans)
 
 TNode *GetDec (Trans *trans)
 {
-    if (Require (trans, "\"")) return NULL;
+    $ if (Require (trans, "\"")) return NULL;
 
     TNode *idtok = GetTok (trans);
     MovePtr (trans);
@@ -491,7 +487,7 @@ TNode *GetDec (Trans *trans)
 
 void FreeTransTree (TNode *root, TNode **nodes, int nodesNum)
 {
-    for (int node = 0; node < nodesNum; node++)
+    $ for (int node = 0; node < nodesNum; node++)
     {
         nodes[node]->type = TYPE_DEAD;
     }

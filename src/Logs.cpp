@@ -13,7 +13,11 @@ void OpenLogFile (const char *name, const char *mode)
         return;
     }
 
-    fprintf (LogFile, "<pre>\n");
+    fprintf (LogFile, "<html>\n"
+                      "<head>\n"
+                      "<meta charset=\"utf-8\">\n"
+                      "</head>\n"
+                      "<body>\n<pre>\n");
     return;
 }
 
@@ -21,7 +25,7 @@ void CloseLogFile (void)
 {
     if (LogFile != stderr)
     {
-        fprintf (LogFile, "</pre>\n");
+        fprintf (LogFile, "</pre></body></html>\n");
         fclose (LogFile);
         LogFile = stderr;
     }
@@ -33,17 +37,20 @@ void LogMsg (const char *msg, ...)
     va_start (arg, msg);
     vfprintf (LogFile, msg, arg);
     va_end (arg);
+
+    fflush (LogFile);
 }
 
 
 void LogErr (const char *msg, ...)
 {
-    fprintf (LogFile, "\n-------------------------\n"
+    fprintf (LogFile, "\n<HR>\n"
                      "ERROR: ");
     va_list arg;
     va_start (arg, msg);
     vfprintf (LogFile, msg, arg);
     va_end (arg);
 
-    fprintf (LogFile, "\n-------------------------\n");
+    fprintf (LogFile, "\n<HR>\n");
+    fflush (LogFile);
 }

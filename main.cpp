@@ -28,7 +28,7 @@ int main (int argc, const char **argv)
 
     CreateNodeImage (res, "res.png");
 
-    SaveNode (res, "base.txt");
+    // SaveNode (res, "base.txt");
 
     FreeTransTree (res, nodes, nodesNum);
     CloseLogFile ();

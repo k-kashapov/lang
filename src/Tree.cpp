@@ -129,6 +129,11 @@ int NodesEqual (TNode *first, TNode *second)
     return equal;
 }
 
+void TreeLenPrint (TNode *node)
+{
+    printf ("%.*s", node->len, node->declared);
+}
+
 TNode *VisitNode (TNode *node, NodeAction pre, NodeAction in, NodeAction post)
 {
     if (!node) return 0;

@@ -10,7 +10,7 @@ int AddId (Id **IdsArr, int *IdsNum, int64_t hash)
     Id new_id    = {};
     new_id.hash  = hash;
 
-    LogMsg ("new hash = %ld\n", hash);
+    $ LogMsg ("\tnew hash = %ld\n", hash);
 
     IDS[NUM++] = new_id;
 
