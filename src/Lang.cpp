@@ -29,7 +29,7 @@ static int CheckTok (Trans *trans, const char *req)
     return GetTok (trans)->data == hash;
 }
 
-static int Require (Trans *trans, const char *req)
+static int Require_ (Trans *trans, const char *req)
 {
     char *req_str = strdup (req);
     for (char *strtoken = strtok (req_str, " "); strtoken; strtoken = strtok (NULL, " "))
@@ -50,6 +50,8 @@ static int Require (Trans *trans, const char *req)
     free (req_str);
     return 0;
 }
+
+#define Require(val) if (!Require_ (trans, val)) return NULL;
 
 TNode *CreateID (const char *id)
 {
@@ -76,11 +78,11 @@ TNode *GetSt (Trans *trans, const char *end_cond)
 
 TNode *GetG (Trans *trans)
 {
-    $ Require (trans, "Купил мужик шляпу");
+    $ Require ("Купил мужик шляпу .");
 
     TNode *root = GetSt (trans, "А");
 
-    Require (trans, "А она ему как раз");
+    Require ("А она ему как раз .");
     return root;
 }
 
@@ -108,7 +110,7 @@ TNode *GetP (Trans *trans)
         MovePtr (trans);
         TNode *node = GetE (trans);
 
-        Require (trans, "Боба"); // Right bracket ')'
+        Require ("Боба"); // Right bracket ')'
         return node;
     }
     else if (CheckTok (trans, "Анекдот"))
@@ -135,7 +137,7 @@ TNode *GetP (Trans *trans)
             return token;
         }
 
-        SyntaxErr ("Using an undeclared variable: %.*s\n",
+        SyntaxErr ("Get ID: Using an undeclared variable: %.*s\n",
                    token->len,
                    token->declared);
         return NULL;
@@ -239,7 +241,7 @@ TNode *GetE (Trans *trans)
 
 TNode *GetFunc (Trans *trans)
 {
-    $ Require (trans, "Господа , а не сыграть ли нам в новую игру .");
+    $ Require ("Господа , а не сыграть ли нам в новую игру .");
     TNode *val = CreateID ("define");
 
     int initIds = trans->IdsNum;
@@ -254,10 +256,10 @@ TNode *GetFunc (Trans *trans)
         return NULL;
     }
 
-    Require (trans, "называется .");
+    Require ("называется .");
     val->left       = CreateID ("function");
     val->left->left = name;
-    Require (trans, "Правила очень просты :");
+    Require ("Правила очень просты :");
 
     TNode *curr = val->left;
     curr->right = CreateID ("parameter");
@@ -306,7 +308,7 @@ TNode *GetFunc (Trans *trans)
 
     val->right = body;
 
-    Require (trans, ", господа .");
+    Require (", господа .");
 
     $ RmId (TRANS_IDS, trans->IdsNum - initIds);
 
@@ -315,7 +317,7 @@ TNode *GetFunc (Trans *trans)
 
 TNode *GetCall (Trans *trans)
 {
-    $ Require (trans, "Анекдот : Заходят как - то в бар");
+    $ Require ("Анекдот : Заходят как - то в бар");
 
     TNode *val  = CreateID ("call");
     val->right  = CreateID ("function");
@@ -350,7 +352,7 @@ TNode *GetCall (Trans *trans)
 
     MovePtr (trans);
 
-    Require (trans, "А бармен им говорит :");
+    Require ("А бармен им говорит :");
     val->right->left = GetTok (trans);
     if (val->right->left->type != TYPE_ID)
     {
@@ -360,42 +362,42 @@ TNode *GetCall (Trans *trans)
     }
 
     MovePtr (trans);
-    Require (trans, ".");
+    Require (".");
 
     return val;
 }
 
 TNode *GetIF (Trans *trans)
 {
-    $ Require (trans, "Кто прочитал");
+    $ Require ("Кто прочитал");
 
     TNode *val = CreateID ("if");
 
     val->right  = GetE (trans);
     val->left   = CreateID ("decision");
     TNode *curr = val->left;
-    $ Require (trans, "тот сдохнет .");
+    $ Require ("тот сдохнет .");
 
     curr->right = GetSt (trans, "Ставь");
-    $ Require (trans, "Ставь лайк");
+    $ Require ("Ставь лайк");
 
     curr->left = GetSt (trans, "и");
-    $ Require (trans, "и можешь считать , что не читал .");
+    $ Require ("и можешь считать , что не читал .");
 
     return val;
 }
 
 TNode *GetWhile (Trans *trans)
 {
-    $ Require (trans, "В дверь постучали");
+    $ Require ("В дверь постучали");
 
     TNode *val  = CreateID ("while");
 
     val->right  = GetE (trans);
-    Require (trans, "раз .");
+    Require ("раз .");
 
     val->left   = GetSt (trans, "Дверь");
-    Require (trans, "Дверь отвалилась .");
+    Require ("Дверь отвалилась .");
 
     return val;
 }
@@ -430,18 +432,18 @@ TNode *GetOP (Trans *trans)
 
     val = Assn (trans);
 
-    Require (trans, ".");
+    Require (".");
     return val;
 }
 
 TNode *Assn (Trans *trans)
 {
-    $ Require (trans, "Этим");
+    $ Require ("Этим");
 
     TNode *var = GetTok (trans);
     MovePtr (trans);
 
-    Require (trans, "был");
+    Require ("был");
 
     TNode *value = GetE (trans);
 
@@ -455,18 +457,18 @@ TNode *Assn (Trans *trans)
         return node;
     }
 
-    SyntaxErr ("Using an undeclared variable: %.*s\n", var->len, var->declared);
+    SyntaxErr ("Assn: Using an undeclared variable: %.*s\n", var->len, var->declared);
     return NULL;
 }
 
 TNode *GetDec (Trans *trans)
 {
-    $ if (Require (trans, "\"")) return NULL;
+    $ if (Require ("\"")) return NULL;
 
     TNode *idtok = GetTok (trans);
     MovePtr (trans);
 
-    if (Require (trans, "\" - подумал Штирлиц .")) return NULL;
+    if (Require ("\" - подумал Штирлиц .")) return NULL;
 
     if (FindId (TRANS_IDS, idtok->data) >= 0)
     {

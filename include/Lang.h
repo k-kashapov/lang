@@ -85,7 +85,7 @@ enum ServiceHash
 
 const int UnaryNum = sizeof (UnaryFuncs) / sizeof (int64_t);
 
-TNode *BuildTreeFromBase (Config *io_config, const char **buffer);
+TNode *BuildTreeFromBase (Config *io_config, char **buffer);
 
 int IsAlpha (char val);
 

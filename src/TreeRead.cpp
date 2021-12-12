@@ -10,11 +10,12 @@ enum READ_ERRS
 
 struct Reader
 {
-    const char *src;
-    const char *src_start;
+    char *src;
     TNode *curr_node;
     TNode *init_node;
 };
+
+#define CURR rdr->curr_node
 
 int ProcessChar (Reader *rdr);
 
@@ -22,7 +23,7 @@ static int ProcessAlpha (Reader *rdr)
 {
     int type = TYPE_ID;
 
-    if (*rdr->src == '\"')
+    if (*rdr->src == '\'')
     {
         type = TYPE_VAR;
         rdr->src++;
@@ -35,17 +36,16 @@ static int ProcessAlpha (Reader *rdr)
     while (IsAlpha (*rdr->src))
     {
         bytes_read++;
-        printf ("reading char: %c\n", *rdr->src);
         hash += *rdr->src * bytes_read;
         rdr->src++;
     }
 
-    rdr->curr_node->type = type;
+    CURR->type = type;
 
     printf ("hash = %ld, simple = %ld;\n", hash, SimpleHash ("statement", 9));
     if (hash == SimpleHash ("statement", 9))
     {
-        rdr->curr_node->type = TYPE_STATEMENT;
+        CURR->type = TYPE_STATEMENT;
     }
     else
     {
@@ -53,18 +53,18 @@ static int ProcessAlpha (Reader *rdr)
         {
             if (hash == UnaryFuncs[unary])
             {
-                rdr->curr_node->type = TYPE_UNARY;
+                CURR->type = TYPE_UNARY;
                 break;
             }
         }
     }
 
-    rdr->curr_node->len      = (int) (rdr->src - declared);
-    rdr->curr_node->data     = hash;
-    rdr->curr_node->declared = declared;
+    CURR->len      = (int) (rdr->src - declared);
+    CURR->data     = hash;
+    CURR->declared = declared;
 
-    if (type == TYPE_VAR && *rdr->src == '\"') rdr->src++; // skip \" after var name
-    printf ("end variant: %.*s\n", rdr->curr_node->len, rdr->curr_node->declared);
+    if (type == TYPE_VAR && *rdr->src == '\'') rdr->src++; // skip \" after var name
+    printf ("end variant: %.*s\n", CURR->len, CURR->declared);
 
     return ProcessChar (rdr);
 }
@@ -83,10 +83,10 @@ static int ProcessNum (Reader *rdr)
 
     printf ("Const value read = %ld\n", val);
 
-    rdr->curr_node->data     = val;
-    rdr->curr_node->type     = TYPE_CONST;
-    rdr->curr_node->declared = rdr->src;
-    rdr->curr_node->len      = bytes_read;
+    CURR->data     = val;
+    CURR->type     = TYPE_CONST;
+    CURR->declared = rdr->src;
+    CURR->len      = bytes_read;
 
     rdr->src += bytes_read;
 
@@ -98,28 +98,31 @@ static int ProcessSpecial (Reader *rdr)
     switch (*rdr->src)
     {
         case '(':
-            if (!rdr->curr_node->left &&
-                rdr->curr_node->type != TYPE_UNARY)
+            if (!CURR->left)
             {
-                rdr->curr_node->left         = CreateNode (0);
-                rdr->curr_node->left->parent = rdr->curr_node;
-                rdr->curr_node               = rdr->curr_node->left;
+                CURR->left         = CreateNode (0);
+                CURR->left->parent = CURR;
+                CURR               = CURR->left;
             }
-            else if (!rdr->curr_node->right)
+            else if (!CURR->right)
             {
-                rdr->curr_node->right         = CreateNode (0);
-                rdr->curr_node->right->parent = rdr->curr_node;
-                rdr->curr_node                = rdr->curr_node->right;
+                CURR->right         = CreateNode (0);
+                CURR->right->parent = CURR;
+                CURR                = CURR->right;
             }
             else
             {
-                LogErr ("Node %p L and R already exist: %s\n", rdr->curr_node, rdr->src);
+                LogErr ("Node %p L and R already exist: %s\n", CURR, rdr->src);
                 return LR_EXIST;
             }
             break;
         case ')':
-            if (!rdr->curr_node) rdr->curr_node = CreateNode (0);
-            rdr->curr_node = rdr->curr_node->parent;
+            CURR = CURR->parent;
+            if (rdr->src[1] == ')' && !CURR->right) // checking if parent has only one child
+            {
+                CURR->right = CURR->left;
+                CURR->left  = NULL;
+            }
             break;
         case '^': [[fallthrough]];
         case '+': [[fallthrough]];
@@ -127,10 +130,10 @@ static int ProcessSpecial (Reader *rdr)
         case '*': [[fallthrough]];
         case '=': [[fallthrough]];
         case '/':
-            rdr->curr_node->data     = (tree_elem) (*rdr->src);
-            rdr->curr_node->type     = TYPE_OP;
-            rdr->curr_node->declared = rdr->src;
-            rdr->curr_node->len      = 1;
+            CURR->data     = (tree_elem) (*rdr->src);
+            CURR->type     = TYPE_OP;
+            CURR->declared = rdr->src;
+            CURR->len      = 1;
             break;
         default:
             LogErr ("Unknown symbol: %c (%d)\n", *rdr->src, *rdr->src);
@@ -146,7 +149,7 @@ int ProcessChar (Reader *rdr)
 {
     printf ("---------\ncurr char is %c (%d)\n", *rdr->src, *rdr->src);
 
-    if (IsAlpha (*rdr->src) || *rdr->src == '\"')
+    if (IsAlpha (*rdr->src) || *rdr->src == '\'')
     {
         $ return ProcessAlpha (rdr);
     }
@@ -154,13 +157,17 @@ int ProcessChar (Reader *rdr)
     {
         $ return ProcessNum (rdr);
     }
+    else if (*rdr->src == '\0')
+    {
+        $ return 0;
+    }
     else
     {
         $ return ProcessSpecial (rdr);
     }
 }
 
-TNode *BuildTreeFromBase (Config *io_config, const char **buffer)
+TNode *BuildTreeFromBase (Config *io_config, char **buffer)
 {
     char *source = read_file (io_config->input_file);
     if (!source)
@@ -174,8 +181,7 @@ TNode *BuildTreeFromBase (Config *io_config, const char **buffer)
     printf ("Length = %ld\n", src_len);
 
     Reader rdr    = {};
-    rdr.src       = source;
-    rdr.src_start = source;
+    rdr.src       = source + 1;
     rdr.curr_node = CreateNode (0, TYPE_STATEMENT);
     rdr.init_node = rdr.curr_node;
 
@@ -191,12 +197,9 @@ TNode *BuildTreeFromBase (Config *io_config, const char **buffer)
         return NULL;
     }
 
-    rdr.curr_node = rdr.init_node->left;
-    free (rdr.init_node);
+    CreateNodeImage (rdr.init_node, "init_graph.png");
 
-    CreateNodeImage (rdr.curr_node, "init_graph.png");
+    *buffer = source;
 
-    *buffer = rdr.src_start;
-
-    return rdr.curr_node;
+    return rdr.init_node;
 }

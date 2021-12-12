@@ -1,37 +1,4 @@
-#include "Lang.h"
-
-static FILE *AsmFile   = NULL;
-static int  IdsNum     = 0;
-static Id   *IdsArr    = NULL;
-static int  FreeOffset = 0;
-static int  Tabs       = 0;
-
-static int NodeToAsm   (TNode *node);
-static int PrintSt     (TNode *node);
-static int PrintVar    (TNode *node);
-static int PrintID     (TNode *node);
-static int PrintDefine (TNode *node);
-static int PrintConst  (TNode *node);
-static int PrintOP     (TNode *node);
-static void PrintA (const char *msg, ...);
-static int PrintRet (TNode *node);
-
-const char *RES  = "rx"; /* a register for calculations result
-                           i.e. function's return value        */
-
-const char *FREE = "fx"; /* a register that holds free space
-                            begin position                   */
-#define CURR    node
-#define LEFT    node->left
-#define RIGHT   node->right
-#define DATA    node->data
-#define DECL    node->declared
-#define LEN     node->len
-#define TYPE    node->type
-#define IDS     IdsArr
-#define IDNUM   IdsNum
-#define ASM_IDS &IDS, &IDNUM
-#define SAVE()  PrintA ("pop %s\n", RES)
+#include "TreeAsm.h"
 
 static void PrintA (const char *msg, ...)
 {
@@ -46,13 +13,52 @@ static void PrintA (const char *msg, ...)
     va_end (arg);
 }
 
-static int PrintOP (TNode *node)
+static int PrintIF (TNode *node)
 {
-    int lErr = NodeToAsm (LEFT);
-    if (lErr) return lErr;
+    
 
+    return 0;
+}
+
+static int PrintAssn (TNode *node)
+{
     int rErr = NodeToAsm (RIGHT);
     if (rErr) return rErr;
+
+    PrintA ("push %s\n", RES);
+
+    int id_pos = FindId (ASM_IDS, LEFT->data);
+
+    if (id_pos >= 0)
+    {
+        PrintA ("pop [%ld]\n", id_pos);
+    }
+    else
+    {
+        LogMsg ("var declared = %.*s; len = %d\n", LEFT->len, LEFT->declared, LEFT->len);
+        PrintA
+        (
+            "pop [%s+%d] ; %.*s\n", // save value to FREE + OFFSET
+            FREE, FreeOffset, LEFT->len, LEFT->declared
+        );
+
+        AddId (ASM_IDS, LEFT->data);
+        FreeOffset++;
+    }
+
+    return 0;
+}
+
+static int PrintOP (TNode *node)
+{
+    switch (node->data)
+    {
+        case '=':
+            return PrintAssn (CURR);
+            break;
+        default:
+            break;
+    }
 
     return 0;
 }
@@ -147,42 +153,13 @@ static int PrintVar (TNode *node)
 
     if (id_pos >= 0)
     {
-        PrintA ("push [%ld] ; %.*s\n", LEN, DECL);
+        PrintA ("push [%ld] ; %.*s\n", id_pos, LEN, DECL);
         SAVE();
     }
     else
     {
         SyntaxErr ("Undeclared variable used: %.*s\n", LEN, DECL);
         return UNDECLARED;
-    }
-
-    return 0;
-}
-
-static int PrintAssn (TNode *node)
-{
-    int rErr = NodeToAsm (RIGHT);
-    if (rErr) return rErr;
-
-    PrintA ("push %s\n", RES);
-
-    int id_pos = FindId (ASM_IDS, LEFT->data);
-
-    if (id_pos >= 0)
-    {
-        PrintA ("pop [%ld]\n", id_pos);
-    }
-    else
-    {
-        LogMsg ("node declared = %.*s; len = %d\n", LEFT->len, LEFT->declared, LEN);
-        PrintA
-        (
-            "pop [%s+%d] ; %.*s\n", // save value to FREE + OFFSET
-            FREE, FreeOffset, LEFT->len, LEFT->declared
-        );
-
-        AddId (ASM_IDS, LEFT->data);
-        FreeOffset++;
     }
 
     return 0;

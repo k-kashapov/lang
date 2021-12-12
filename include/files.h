@@ -19,11 +19,9 @@ enum FilesExitCodes
   OPEN_FILE_FAILED =    -3
 };
 
-enum Settings
+enum LANG_OPTNS
 {
-    DOT_IMG     = 0x001,
-    UPDATE_BASE = 0X002,
-
+    READ_BASE = 0x01,
 };
 
 /**
