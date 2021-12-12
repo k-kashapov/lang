@@ -20,6 +20,10 @@ int GetArgs (int argc, const char **argv, Config *curr_config)
             curr_config->output_file = *(++argv);
             argc--;
         }
+        else if (!strncmp (*argv, "-b", 3))
+        {
+            curr_config->settings |= READ_BASE;
+        }
     }
     return 0;
 }

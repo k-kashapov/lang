@@ -1,58 +1,152 @@
-#include <stdio.h>
-#include <stdint.h>
-#include <ctype.h>
-#include "files.h"
-#include <stdarg.h>
+#ifndef LANG_H
+#define LANG_H
 
-#define SEMANTIC(cmd) cmd
-const int MAX_STR_LEN  = 100;
+#include "Logs.h"
+#include <stdarg.h>
+#include "files.h"
+#include "Tree.h"
+
 const int INIT_IDS_NUM = 10;
+
+const char NotAlpha[] = "0123456789:-+!?*/ \"\n\t\r(){}[]^\\,.=";
+const int  AlphaNum   = sizeof (NotAlpha) / sizeof (char);
 
 struct Id
 {
     int64_t hash;
-    int     value;
+};
+
+struct FuncId
+{
+    int64_t hash;
+    int args_num;
 };
 
 struct Trans
 {
-    Id  *IdsArr;
-    int IdsNum;
-    char *s;
+    Id     *IdsArr;
+    int    IdsNum;
+    TNode  **s;
+    FuncId *FuncArr;
+    int     FuncsNum;
 };
 
-enum EXIT_CODES
+enum LANG_EXIT_CODES
 {
-    OK            = 0x00,
     REQUIRE_FAIL  = 0x01,
     REDECLARATION = 0x02,
     UNDECLARED    = 0x03,
 };
 
-void SkipSpaces (Trans *trans);
+int64_t SimpleHash (const void *data, int len);
 
-void MovePtr (Trans *trans);
+const int64_t UnaryFuncs[] =
+{
+    SimpleHash ("sin",  3),
+    SimpleHash ("cos",  3),
+    SimpleHash ("diff", 4)
+};
 
-int CheckString (Trans *trans, const char *str);
+#define SERVICE_HASH(val) SimpleHash (val, strlen (val))
+const int64_t ServiceNodes[] =
+{
+    SERVICE_HASH ("Биба"),
+    SERVICE_HASH ("Боба"),
+    SERVICE_HASH ("define"),
+    SERVICE_HASH ("function"),
+    SERVICE_HASH ("parameter"),
+    SERVICE_HASH ("call"),
+    SERVICE_HASH ("if"),
+    SERVICE_HASH ("decision"),
+    SERVICE_HASH ("while"),
+    SERVICE_HASH ("return")
+};
+#undef SERVICE_HASH
 
-int GetN (Trans *trans);
+enum ServiceHash
+{
+    BIBA = 0,
+    BOBA,
+    DEF,
+    FUNC,
+    PARAM,
+    CALL,
+    IF,
+    DECISION,
+    WHILE,
+    RET,
+};
 
-int GetP (Trans *trans);
+#define TRANS_IDS &trans->IdsArr, &trans->IdsNum
 
-int GetT (Trans *trans);
+#define HASH_EQ(node, hash_num) (node->data == ServiceNodes[hash_num])
+#define ST(l, r)                CreateNode (0, TYPE_STATEMENT, NULL, l, r)
+#define IDEXISTS(target)        (FindId (TRANS_IDS, target) >= 0)
 
-int GetE (Trans *trans);
+const int UnaryNum = sizeof (UnaryFuncs) / sizeof (int64_t);
 
-int GetId (Trans *trans);
+TNode *BuildTreeFromBase (Config *io_config, char **buffer);
 
-int Assn (Trans *trans);
+int IsAlpha (char val);
 
-int Require (Trans *trans, const char* req);
+TNode *CreateID (const char *id);
 
-int GetG (Trans *trans);
+TNode *GetSt (Trans *trans, const char *end_cond);
 
-int GetOP (Trans *trans);
+TNode *GetN (Trans *trans);
+
+TNode *GetP (Trans *trans);
+
+TNode *GetT (Trans *trans);
+
+TNode *GetE (Trans *trans);
+
+TNode *GetPow (Trans *trans);
+
+TNode *Assn (Trans *trans);
+
+TNode *GetG (Trans *trans);
+
+TNode *GetFunc (Trans *trans);
+
+TNode *GetCall (Trans *trans);
+
+TNode *GetIF (Trans *trans);
+
+TNode *GetWhile (Trans *trans);
+
+TNode *GetOP (Trans *trans);
 
 int SyntaxErr (const char *msg, ...);
 
-int GetDec (Trans *trans);
+TNode *GetDec (Trans *trans);
+
+TNode *ReadToken (const char *str);
+
+TNode **LexicAnalysis (const char *string, int *nodesNum);
+
+void OpenGraphFile (const char *name);
+
+void PrintNodeDot (TNode *node);
+
+int CreateNodeImage (TNode *node, const char *name);
+
+void CloseGraphFile (void);
+
+void OpenBaseFile (const char *name);
+
+int SaveNode (TNode *node, const char *name);
+
+void CloseBaseFile (void);
+
+int Translate (TNode *root, const char *name);
+
+void FreeTransTree (TNode *root, TNode **nodes, int nodesNum);
+
+int AddId (Id **IdsArr, int *IdsNum, int64_t hash);
+
+int FindId (Id **IdsArr, int *IdsNum, int64_t hash);
+
+int RmId (Id **IdsArr, int *IdsNum, int num = 1);
+
+#endif
