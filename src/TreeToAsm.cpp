@@ -15,7 +15,7 @@ static void PrintA (const char *msg, ...)
 
 static int PrintIF (TNode *node)
 {
-    
+
 
     return 0;
 }
@@ -31,7 +31,7 @@ static int PrintAssn (TNode *node)
 
     if (id_pos >= 0)
     {
-        PrintA ("pop [%ld]\n", id_pos);
+        PrintA ("pop [%s+%ld]\n", FREE, id_pos);
     }
     else
     {
@@ -174,6 +174,8 @@ static int PrintSt (TNode *node)
     }
 
     $ int rErr = NodeToAsm (RIGHT);
+
+    PrintA ("\n");
     return rErr;
 }
 
