@@ -51,7 +51,7 @@ static int Require_ (Trans *trans, const char *req)
     return 0;
 }
 
-#define Require(val) if (!Require_ (trans, val)) return NULL;
+#define Require(val) if (Require_ (trans, val)) return NULL;
 
 TNode *CreateID (const char *id)
 {
@@ -463,12 +463,12 @@ TNode *Assn (Trans *trans)
 
 TNode *GetDec (Trans *trans)
 {
-    $ if (Require ("\"")) return NULL;
+    $ Require ("\"");
 
     TNode *idtok = GetTok (trans);
     MovePtr (trans);
 
-    if (Require ("\" - подумал Штирлиц .")) return NULL;
+    Require ("\" - подумал Штирлиц .");
 
     if (FindId (TRANS_IDS, idtok->data) >= 0)
     {

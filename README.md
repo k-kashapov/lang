@@ -2,6 +2,7 @@
  programming language
 
 Grammar:
+
     G     ::= Купил мужик шляпу. OP+ А она ему как раз.
 
     OP    ::= Dec || Func || IF || While || Call || Assn.
