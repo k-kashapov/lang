@@ -29,29 +29,40 @@ static int CheckTok (Trans *trans, const char *req)
     return GetTok (trans)->data == hash;
 }
 
-static int Require_ (Trans *trans, const char *req)
+#define PHRASE(words, num, text, ph_hash)                                       \
+    case num:                                                                   \
+    {                                                                           \
+        $$ int64_t hash = 0;                                                    \
+        TNode *got = GetTok (trans);                                            \
+        for (int wd = 0; wd < words; wd++)                                      \
+        {                                                                       \
+            hash += GetTok (trans)->data;                                       \
+            MovePtr (trans);                                                    \
+        }                                                                       \
+        if (hash == ph_hash)                                                    \
+            return 1;                                                           \
+        else                                                                    \
+        {                                                                       \
+            SyntaxErr ("Invalid syntax. Expected: " text                        \
+                       "\ngot: %.*s\n", got->len, got->declared);               \
+            return 0;                                                           \
+        }                                                                       \
+    }
+static int Require_ (Trans *trans, int req)
 {
-    char *req_str = strdup (req);
-    for (char *strtoken = strtok (req_str, " "); strtoken; strtoken = strtok (NULL, " "))
+    switch (req)
     {
-        int64_t hash = SimpleHash (strtoken, (int) strlen (strtoken));
-
-        TNode *token = GetTok (trans);
-        if (token->data != hash)
-        {
-            SyntaxErr ("expected: %s; got: %.*s\n", strtoken, token->len, token->declared);
-            free (req_str);
-            return REQUIRE_FAIL;
-        }
-
-        MovePtr (trans);
+        #include "Phrases.h"
+        default:
+            break;
     }
 
-    free (req_str);
+    LogMsg ("Invalid requirement: %d\n", req);
     return 0;
 }
+#undef PHRASE
 
-#define Require(val) if (Require_ (trans, val)) return NULL;
+#define Require(val) if (!Require_ (trans, val)) return NULL;
 
 TNode *CreateID (const char *id)
 {
@@ -71,6 +82,7 @@ TNode *GetSt (Trans *trans, const char *end_cond)
     while (!CheckTok (trans, end_cond))
     {
         $ curr = ST (curr, GetOP (trans));
+        if (!curr->right) break;
     }
 
     return curr;
@@ -78,11 +90,11 @@ TNode *GetSt (Trans *trans, const char *end_cond)
 
 TNode *GetG (Trans *trans)
 {
-    $ Require ("Купил мужик шляпу .");
+    $ Require (INIT);
 
     TNode *root = GetSt (trans, "А");
 
-    Require ("А она ему как раз .");
+    Require (END);
     return root;
 }
 
@@ -110,7 +122,7 @@ TNode *GetP (Trans *trans)
         MovePtr (trans);
         TNode *node = GetE (trans);
 
-        Require ("Боба"); // Right bracket ')'
+        MovePtr (trans); // Right bracket
         return node;
     }
     else if (CheckTok (trans, "Анекдот"))
@@ -152,6 +164,8 @@ TNode *GetPow (Trans *trans)
 {
     $$ TNode *val = GetP (trans);
 
+    if (!val) return NULL;
+
     if (CheckTok (trans, "^"))
     {
         TNode *action = GetTok (trans);
@@ -181,6 +195,8 @@ TNode *GetT (Trans *trans)
 {
     $$ TNode *val = GetPow (trans);
 
+    if (!val) return NULL;
+
     if (CheckTok (trans, "*") ||
         CheckTok (trans, "/"))
     {
@@ -208,9 +224,11 @@ TNode *GetT (Trans *trans)
     return val;
 }
 
-TNode *GetE (Trans *trans)
+TNode *GetSum (Trans *trans)
 {
     $$ TNode *val = GetT (trans);
+
+    if (!val) return NULL;
 
     if (CheckTok (trans, "+") ||
         CheckTok (trans, "-"))
@@ -230,7 +248,81 @@ TNode *GetE (Trans *trans)
             new_action->left  = curr->right;
             curr->right       = new_action;
             curr              = new_action;
-            curr->right       = GetPow (trans);
+            curr->right       = GetT (trans);
+        }
+
+        val = action;
+    }
+
+    return val;
+}
+
+TNode *GetCond (Trans *trans)
+{
+    $$ TNode *val = GetSum (trans);
+
+    $$ if (!val) return NULL;
+
+    printf ("checktok = %d\nnext cond = %.*s\n", (CheckTok (trans, ">") || CheckTok (trans, "<") || CheckTok (trans, ">=") || CheckTok (trans, "<=") || CheckTok (trans, "!=")), GetTok (trans)->len, GetTok (trans)->declared);
+
+    if (CheckTok (trans, ">")  ||
+        CheckTok (trans, "<")  ||
+        CheckTok (trans, ">=") ||
+        CheckTok (trans, "<=") ||
+        CheckTok (trans, "!="))
+    {
+        TNode *action = GetTok (trans);
+        MovePtr (trans);
+
+        TNode *rVal   = GetSum (trans);
+        action->left  = val;
+        action->right = rVal;
+        TNode *curr   = action;
+
+        while (CheckTok (trans, ">")  ||
+               CheckTok (trans, "<")  ||
+               CheckTok (trans, ">=") ||
+               CheckTok (trans, "<=") ||
+               CheckTok (trans, "!="))
+        {
+            TNode *new_action = GetTok (trans);
+            new_action->left  = curr->right;
+            curr->right       = new_action;
+            curr              = new_action;
+            curr->right       = GetSum (trans);
+        }
+
+        val = action;
+    }
+
+    return val;
+}
+
+TNode *GetE (Trans *trans)
+{
+    $$ TNode *val = GetCond (trans);
+
+    if (!val) return NULL;
+
+    if (CheckTok (trans, "||") ||
+        CheckTok (trans, "&&"))
+    {
+        TNode *action = GetTok (trans);
+        MovePtr (trans);
+
+        TNode *rVal   = GetCond (trans);
+        action->left  = val;
+        action->right = rVal;
+        TNode *curr   = action;
+
+        while (CheckTok (trans, "||") ||
+               CheckTok (trans, "&&"))
+        {
+            TNode *new_action = GetTok (trans);
+            new_action->left  = curr->right;
+            curr->right       = new_action;
+            curr              = new_action;
+            curr->right       = GetCond (trans);
         }
 
         val = action;
@@ -241,7 +333,7 @@ TNode *GetE (Trans *trans)
 
 TNode *GetFunc (Trans *trans)
 {
-    $ Require ("Господа , а не сыграть ли нам в новую игру .");
+    $ Require (DEFSTART);
     TNode *val = CreateID ("define");
 
     int initIds = trans->IdsNum;
@@ -256,10 +348,10 @@ TNode *GetFunc (Trans *trans)
         return NULL;
     }
 
-    Require ("называется .");
+    Require (DEFNAME);
     val->left       = CreateID ("function");
     val->left->left = name;
-    Require ("Правила очень просты :");
+    Require (DEFPARAM);
 
     TNode *curr = val->left;
     curr->right = CreateID ("parameter");
@@ -308,7 +400,7 @@ TNode *GetFunc (Trans *trans)
 
     val->right = body;
 
-    Require (", господа .");
+    Require (RETEND);
 
     $ RmId (TRANS_IDS, trans->IdsNum - initIds);
 
@@ -317,7 +409,7 @@ TNode *GetFunc (Trans *trans)
 
 TNode *GetCall (Trans *trans)
 {
-    $ Require ("Анекдот : Заходят как - то в бар");
+    $ Require (ANEK);
 
     TNode *val  = CreateID ("call");
     val->right  = CreateID ("function");
@@ -352,7 +444,7 @@ TNode *GetCall (Trans *trans)
 
     MovePtr (trans);
 
-    Require ("А бармен им говорит :");
+    Require (ANEKNAME);
     val->right->left = GetTok (trans);
     if (val->right->left->type != TYPE_ID)
     {
@@ -362,42 +454,42 @@ TNode *GetCall (Trans *trans)
     }
 
     MovePtr (trans);
-    Require (".");
+    Require (DOT);
 
     return val;
 }
 
 TNode *GetIF (Trans *trans)
 {
-    $ Require ("Кто прочитал");
+    $ Require (IFSTART);
 
     TNode *val = CreateID ("if");
 
-    val->right  = GetE (trans);
-    val->left   = CreateID ("decision");
-    TNode *curr = val->left;
-    $ Require ("тот сдохнет .");
+    $ val->left = GetE (trans);
+    val->right  = CreateID ("decision");
+    TNode *curr = val->right;
+    $ Require (IFTHEN);
 
-    curr->right = GetSt (trans, "Ставь");
-    $ Require ("Ставь лайк");
+    curr->left = GetSt (trans, "Ставь");
+    $ Require (IFELSE);
 
-    curr->left = GetSt (trans, "и");
-    $ Require ("и можешь считать , что не читал .");
+    curr->right = GetSt (trans, "и");
+    $ Require (IFEND);
 
     return val;
 }
 
 TNode *GetWhile (Trans *trans)
 {
-    $ Require ("В дверь постучали");
+    $ Require (WHILESTART);
 
     TNode *val  = CreateID ("while");
 
     val->right  = GetE (trans);
-    Require ("раз .");
+    $ Require (WHILEDO);
 
     val->left   = GetSt (trans, "Дверь");
-    Require ("Дверь отвалилась .");
+    $ Require (WHILEEND);
 
     return val;
 }
@@ -432,18 +524,18 @@ TNode *GetOP (Trans *trans)
 
     val = Assn (trans);
 
-    Require (".");
+    Require (DOT);
     return val;
 }
 
 TNode *Assn (Trans *trans)
 {
-    $ Require ("Этим");
+    $ Require (ASSNSTART);
 
     TNode *var = GetTok (trans);
     MovePtr (trans);
 
-    Require ("был");
+    Require (ASSNIS);
 
     TNode *value = GetE (trans);
 
@@ -463,12 +555,12 @@ TNode *Assn (Trans *trans)
 
 TNode *GetDec (Trans *trans)
 {
-    $ Require ("\"");
+    $ Require (KAVYCHKA);
 
     TNode *idtok = GetTok (trans);
     MovePtr (trans);
 
-    Require ("\" - подумал Штирлиц .");
+    Require (DECLEND);
 
     if (FindId (TRANS_IDS, idtok->data) >= 0)
     {

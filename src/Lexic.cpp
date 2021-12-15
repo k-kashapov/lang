@@ -91,6 +91,21 @@ static TNode *GetLexToken (LexicAn *lan)
     }
     else switch (*lan->str)
     {
+        case '!': [[fallthrough]];
+        case '>': [[fallthrough]];
+        case '=': [[fallthrough]];
+        case '<':
+            printf ("next is %c\n", lan->str[1]);
+            fflush (stdout);
+            if (lan->str[1] == '=')
+            {
+                TNode *node = CreateNode (*lan->str + 2 * '=', TYPE_OP, declared);
+                node->len = 2;
+                lan->str++;
+                MovePtr (lan);
+                return node;
+            }
+            [[fallthrough]];
         case '^': [[fallthrough]];
         case '+': [[fallthrough]];
         case '-': [[fallthrough]];
@@ -105,7 +120,6 @@ static TNode *GetLexToken (LexicAn *lan)
                 MovePtr (lan);
                 return node;
             }
-        case '!': [[fallthrough]];
         case '?': [[fallthrough]];
         case '.':
             {

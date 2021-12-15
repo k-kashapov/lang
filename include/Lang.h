@@ -5,10 +5,11 @@
 #include <stdarg.h>
 #include "files.h"
 #include "Tree.h"
+#include "grammarEnum.h"
 
 const int INIT_IDS_NUM = 10;
 
-const char NotAlpha[] = "0123456789:-+!?*/ \"\n\t\r(){}[]^\\,.=";
+const char NotAlpha[] = "0123456789:-+!?*/ \"\n\t\r(){}[]^\\,.=<>";
 const int  AlphaNum   = sizeof (NotAlpha) / sizeof (char);
 
 struct Id
@@ -98,6 +99,10 @@ TNode *GetN (Trans *trans);
 TNode *GetP (Trans *trans);
 
 TNode *GetT (Trans *trans);
+
+TNode *GetSum (Trans *trans);
+
+TNode *GetCond (Trans *trans);
 
 TNode *GetE (Trans *trans);
 
