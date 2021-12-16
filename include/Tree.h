@@ -53,6 +53,7 @@ enum TYPES
     TYPE_UNARY     = 0x004,
     TYPE_VAR       = 0x005,
     TYPE_STATEMENT = 0x006,
+    TYPE_SERVICE   = 0x007,
     TYPE_DEAD      = 0xFFF,
 };
 

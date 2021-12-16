@@ -37,6 +37,17 @@ int main (int argc, const char **argv)
 
         res = GetG (&trans);
 
+        if (!res)
+        {
+            FreeTransTree (res, nodes, nodesNum);
+            free (trans.IdsArr);
+            free (trans.FuncArr);
+            free (code);
+            free (nodes);
+            CloseLogFile ();
+            return 0;
+        }
+
         CreateNodeImage (res, "res.png");
         SaveNode (res, "base.txt");
         Translate (res, "asm.txt");

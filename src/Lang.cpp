@@ -1,18 +1,5 @@
 #include "Lang.h"
 
-int64_t SimpleHash (const void *data, int len)
-{
-    int64_t hash        = 0;
-    const char *data_ch = (const char *) data;
-
-    for (int byte = 0; byte < len; byte++)
-    {
-        hash += data_ch[byte] * (byte + 1);
-    }
-
-    return hash;
-}
-
 static void MovePtr (Trans *trans)
 {
     trans->s++;
@@ -64,10 +51,10 @@ static int Require_ (Trans *trans, int req)
 
 #define Require(val) if (!Require_ (trans, val)) return NULL;
 
-TNode *CreateID (const char *id)
+static TNode *CreateNodeWithStr (const char *id, int type = TYPE_ID)
 {
     $$ int len   = (int) strlen (id);
-    TNode *node = CreateNode (SimpleHash (id, len), TYPE_ID, id);
+    TNode *node = CreateNode (SimpleHash (id, len), type, id);
     node->len   = len;
     return node;
 }
@@ -117,7 +104,7 @@ TNode *GetP (Trans *trans)
 {
     $$ TNode *token = GetTok (trans);
 
-    if (HASH_EQ (token, BIBA)) // Left bracket '('
+    if (CheckTok (trans, "Биба")) // Left bracket '('
     {
         MovePtr (trans);
         TNode *node = GetE (trans);
@@ -160,9 +147,29 @@ TNode *GetP (Trans *trans)
     }
 }
 
+TNode *GetNeg (Trans *trans)
+{
+    $$ TNode *val = GetTok (trans);
+
+    if (!val) return NULL;
+
+    if (CheckTok (trans, "!"))
+    {
+        MovePtr (trans);
+        val = CreateNode ('!', TYPE_OP, val->declared, NULL, GetP (trans));
+        val->len = 1;
+    }
+    else
+    {
+        val = GetP (trans);
+    }
+
+    return val;
+}
+
 TNode *GetPow (Trans *trans)
 {
-    $$ TNode *val = GetP (trans);
+    $$ TNode *val = GetNeg (trans);
 
     if (!val) return NULL;
 
@@ -171,7 +178,7 @@ TNode *GetPow (Trans *trans)
         TNode *action = GetTok (trans);
         MovePtr (trans);
 
-        TNode *rVal   = GetP (trans);
+        TNode *rVal   = GetNeg (trans);
         action->left  = val;
         action->right = rVal;
         TNode *curr   = action;
@@ -182,7 +189,7 @@ TNode *GetPow (Trans *trans)
             new_action->left  = curr->right;
             curr->right       = new_action;
             curr              = new_action;
-            curr->right       = GetP (trans);
+            curr->right       = GetNeg (trans);
         }
 
         val = action;
@@ -257,13 +264,11 @@ TNode *GetSum (Trans *trans)
     return val;
 }
 
-TNode *GetCond (Trans *trans)
+TNode *GetCmp (Trans *trans)
 {
     $$ TNode *val = GetSum (trans);
 
     $$ if (!val) return NULL;
-
-    printf ("checktok = %d\nnext cond = %.*s\n", (CheckTok (trans, ">") || CheckTok (trans, "<") || CheckTok (trans, ">=") || CheckTok (trans, "<=") || CheckTok (trans, "!=")), GetTok (trans)->len, GetTok (trans)->declared);
 
     if (CheckTok (trans, ">")  ||
         CheckTok (trans, "<")  ||
@@ -300,7 +305,7 @@ TNode *GetCond (Trans *trans)
 
 TNode *GetE (Trans *trans)
 {
-    $$ TNode *val = GetCond (trans);
+    $$ TNode *val = GetCmp (trans);
 
     if (!val) return NULL;
 
@@ -308,9 +313,10 @@ TNode *GetE (Trans *trans)
         CheckTok (trans, "&&"))
     {
         TNode *action = GetTok (trans);
+        action->type  = TYPE_OP;
         MovePtr (trans);
 
-        TNode *rVal   = GetCond (trans);
+        TNode *rVal   = GetCmp (trans);
         action->left  = val;
         action->right = rVal;
         TNode *curr   = action;
@@ -319,10 +325,11 @@ TNode *GetE (Trans *trans)
                CheckTok (trans, "&&"))
         {
             TNode *new_action = GetTok (trans);
+            new_action->type  = TYPE_OP;
             new_action->left  = curr->right;
             curr->right       = new_action;
             curr              = new_action;
-            curr->right       = GetCond (trans);
+            curr->right       = GetCmp (trans);
         }
 
         val = action;
@@ -334,7 +341,7 @@ TNode *GetE (Trans *trans)
 TNode *GetFunc (Trans *trans)
 {
     $ Require (DEFSTART);
-    TNode *val = CreateID ("define");
+    TNode *val = CreateNodeWithStr ("define", TYPE_SERVICE);
 
     int initIds = trans->IdsNum;
 
@@ -349,39 +356,28 @@ TNode *GetFunc (Trans *trans)
     }
 
     Require (DEFNAME);
-    val->left       = CreateID ("function");
+    val->left       = CreateNodeWithStr ("function", TYPE_SERVICE);
     val->left->left = name;
     Require (DEFPARAM);
 
-    TNode *curr = val->left;
-    curr->right = CreateID ("parameter");
-    curr        = curr->right;
-    curr->right = GetTok (trans);
+    TNode *curr       = val->left;
+    curr->right       = CreateNodeWithStr ("parameter", TYPE_SERVICE);
+    curr              = curr->right;
+    curr->right       = GetTok (trans);
+    curr->right->type = TYPE_VAR;
+    MovePtr (trans);
 
     $ AddId (TRANS_IDS, curr->right->data);
 
-    if (curr->right->type != TYPE_ID)
-    {
-        SyntaxErr ("Invalid type: expected id; got %d\n", curr->right->type);
-        DestructNode (val);
-        return NULL;
-    }
-    MovePtr (trans);
-
     while (!CheckTok (trans, "."))
     {
-        curr->left  = CreateID ("parameter");
-        curr        = curr->left;
-        curr->right = GetTok (trans);
+        curr->left        = CreateNodeWithStr ("parameter", TYPE_SERVICE);
+        curr              = curr->left;
+        curr->right       = GetTok (trans);
+        curr->right->type = TYPE_VAR;
 
         $ AddId (TRANS_IDS, curr->right->data);
 
-        if (curr->right->type != TYPE_ID)
-        {
-            SyntaxErr ("Invalid type: expected id; got %d\n", curr->right->type);
-            DestructNode (val);
-            return NULL;
-        }
         MovePtr (trans);
     }
     MovePtr (trans);
@@ -390,7 +386,7 @@ TNode *GetFunc (Trans *trans)
 
     MovePtr (trans);
 
-    TNode *ret = CreateID ("return");
+    TNode *ret = CreateNodeWithStr ("return", TYPE_SERVICE);
     body  = ST (body, ret);
 
     if (!CheckTok (trans, ","))
@@ -411,34 +407,23 @@ TNode *GetCall (Trans *trans)
 {
     $ Require (ANEK);
 
-    TNode *val  = CreateID ("call");
-    val->right  = CreateID ("function");
+    TNode *val  = CreateNodeWithStr ("call", TYPE_SERVICE);
+    val->right  = CreateNodeWithStr ("function", TYPE_SERVICE);
     TNode *curr = val->right;
 
-    curr->right = CreateID ("parameter");
-    curr        = curr->right;
-    curr->right = GetTok (trans);
+    curr->right       = CreateNodeWithStr ("parameter", TYPE_SERVICE);
+    curr              = curr->right;
+    curr->right       = GetTok (trans);
+    curr->right->type = TYPE_VAR;
     MovePtr (trans);
-
-    if (curr->right->type != TYPE_ID)
-    {
-        SyntaxErr ("Invalid type: expected id; got %d\n", curr->right->type);
-        DestructNode (val);
-        return NULL;
-    }
 
     while (!CheckTok (trans, "."))
     {
-        curr->left  = CreateID ("parameter");
-        curr        = curr->left;
-        curr->right = GetTok (trans);
+        curr->left        = CreateNodeWithStr ("parameter", TYPE_SERVICE);
+        curr              = curr->left;
+        curr->right       = GetTok (trans);
+        curr->right->type = TYPE_VAR;
 
-        if (curr->right->type != TYPE_ID)
-        {
-            SyntaxErr ("Invalid type: expected id; got %d\n", curr->right->type);
-            DestructNode (val);
-            return NULL;
-        }
         MovePtr (trans);
     }
 
@@ -463,10 +448,12 @@ TNode *GetIF (Trans *trans)
 {
     $ Require (IFSTART);
 
-    TNode *val = CreateID ("if");
+    TNode *val = CreateNodeWithStr ("if", TYPE_SERVICE);
 
     $ val->left = GetE (trans);
-    val->right  = CreateID ("decision");
+    if (!val->left) return NULL;
+
+    val->right  = CreateNodeWithStr ("decision", TYPE_SERVICE);
     TNode *curr = val->right;
     $ Require (IFTHEN);
 
@@ -483,7 +470,7 @@ TNode *GetWhile (Trans *trans)
 {
     $ Require (WHILESTART);
 
-    TNode *val  = CreateID ("while");
+    TNode *val  = CreateNodeWithStr ("while", TYPE_SERVICE);
 
     val->right  = GetE (trans);
     $ Require (WHILEDO);
@@ -542,8 +529,7 @@ TNode *Assn (Trans *trans)
     if (FindId (TRANS_IDS, var->data) >= 0)
     {
         var->type   = TYPE_VAR;
-        TNode *node = CreateID ("=");
-        node->type  = TYPE_OP;
+        TNode *node = CreateNodeWithStr ("=", TYPE_OP);
         node->left  = var;
         node->right = value;
         return node;
@@ -569,10 +555,19 @@ TNode *GetDec (Trans *trans)
         return NULL;
     }
 
-    $ AddId (TRANS_IDS, idtok->data);
+    if (CheckTok (trans, "У"))
+    {
+        Require (TOCONST);
+        $ AddId (TRANS_IDS, idtok->data, 1);
+        idtok->left = CreateNodeWithStr ("const", TYPE_SERVICE);
+    }
+    else
+    {
+        $ AddId (TRANS_IDS, idtok->data, 0);
+    }
 
     idtok->type     = TYPE_VAR;
-    TNode *val      = CreateNode (SimpleHash ("=", 1), TYPE_OP, idtok->declared, idtok);
+    TNode *val      = CreateNode ('=', TYPE_OP, idtok->declared, idtok);
     val->right      = CreateNode (0, TYPE_CONST);
     val->right->len = 1;
 

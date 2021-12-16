@@ -40,12 +40,10 @@ static int ProcessAlpha (Reader *rdr)
         rdr->src++;
     }
 
-    CURR->type = type;
-
     printf ("hash = %ld, simple = %ld;\n", hash, SimpleHash ("statement", 9));
     if (hash == SimpleHash ("statement", 9))
     {
-        CURR->type = TYPE_STATEMENT;
+        type = TYPE_STATEMENT;
     }
     else
     {
@@ -53,12 +51,13 @@ static int ProcessAlpha (Reader *rdr)
         {
             if (hash == UnaryFuncs[unary])
             {
-                CURR->type = TYPE_UNARY;
+                type = TYPE_UNARY;
                 break;
             }
         }
     }
 
+    CURR->type     = type;
     CURR->len      = (int) (rdr->src - declared);
     CURR->data     = hash;
     CURR->declared = declared;

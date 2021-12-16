@@ -9,12 +9,13 @@
 
 const int INIT_IDS_NUM = 10;
 
-const char NotAlpha[] = "0123456789:-+!?*/ \"\n\t\r(){}[]^\\,.=<>";
+const char NotAlpha[] = "0123456789:-+!?*/ \"\n\t\r(){}[]^\\,.=<>\'";
 const int  AlphaNum   = sizeof (NotAlpha) / sizeof (char);
 
 struct Id
 {
     int64_t hash;
+    char    isConst;
 };
 
 struct FuncId
@@ -51,8 +52,6 @@ const int64_t UnaryFuncs[] =
 #define SERVICE_HASH(val) SimpleHash (val, strlen (val))
 const int64_t ServiceNodes[] =
 {
-    SERVICE_HASH ("Биба"),
-    SERVICE_HASH ("Боба"),
     SERVICE_HASH ("define"),
     SERVICE_HASH ("function"),
     SERVICE_HASH ("parameter"),
@@ -66,9 +65,7 @@ const int64_t ServiceNodes[] =
 
 enum ServiceHash
 {
-    BIBA = 0,
-    BOBA,
-    DEF,
+    DEF = 0,
     FUNC,
     PARAM,
     CALL,
@@ -86,11 +83,19 @@ enum ServiceHash
 
 const int UnaryNum = sizeof (UnaryFuncs) / sizeof (int64_t);
 
+enum COND_EXP
+{
+    AE  = '>' + 2 * '=',
+    BE  = '<' + 2 * '=',
+    NE  = '!' + 2 * '=',
+    EE  = 3 * '=',
+    OR  = 3 * '|',
+    AND = 3 * '&',
+};
+
 TNode *BuildTreeFromBase (Config *io_config, char **buffer);
 
 int IsAlpha (char val);
-
-TNode *CreateID (const char *id);
 
 TNode *GetSt (Trans *trans, const char *end_cond);
 
@@ -102,7 +107,9 @@ TNode *GetT (Trans *trans);
 
 TNode *GetSum (Trans *trans);
 
-TNode *GetCond (Trans *trans);
+TNode *GetCmp (Trans *trans);
+
+TNode *GetNeg (Trans *trans);
 
 TNode *GetE (Trans *trans);
 
@@ -148,7 +155,7 @@ int Translate (TNode *root, const char *name);
 
 void FreeTransTree (TNode *root, TNode **nodes, int nodesNum);
 
-int AddId (Id **IdsArr, int *IdsNum, int64_t hash);
+int AddId (Id **IdsArr, int *IdsNum, int64_t hash, char isConst = 0);
 
 int FindId (Id **IdsArr, int *IdsNum, int64_t hash);
 

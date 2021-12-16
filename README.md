@@ -29,6 +29,18 @@ Grammar:
 
     Assn  ::= Этим ID был E.
 
-    E     ::= Cond {[|| &&]Cond}*.
+    E     ::= Cmp ([|| &&]Cmp)*
 
-    Cond  ::= !* Sum+ {[> < <= >= == !=]Sum}*.
+    Neg   ::= !* Cmp
+
+    Cmp   ::= Sum ([> < <= >= == !=]Sum)*
+
+    Sum   ::= T ([+-]T)*
+
+    T     ::= Pow (^Pow)*
+
+    Pow   ::= Neg ([*/]Neg)*
+
+    Neg   ::= !* P
+
+    P     ::= Биба E Боба || Call || ID || Call

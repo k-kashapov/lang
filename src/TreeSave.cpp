@@ -2,6 +2,11 @@
 
 static FILE *Base_file = NULL;
 
+#define OP_PRINT(value, to_print)                                               \
+    case value:                                                                 \
+        fprintf (Base_file, to_print);                                          \
+        break;
+
 void OpenBaseFile (const char *name)
 {
     Base_file = fopen (name, "wt");
@@ -28,16 +33,40 @@ static void PrintNodeToBase (TNode *node)
 {
     switch (node->type)
     {
-        case TYPE_VAR:
-            fprintf (Base_file, "\'%.*s\'", node->len, node->declared);
-            break;
-        case TYPE_ID:
+        case TYPE_SERVICE:
             fprintf (Base_file, "%.*s", node->len, node->declared);
+            break;
+        case TYPE_VAR: [[fallthrough]];
+        case TYPE_ID:
+            fprintf (Base_file, "\'%.*s\'", node->len, node->declared);
             break;
         case TYPE_STATEMENT:
             fprintf (Base_file, "statement");
             break;
-        case TYPE_OP:    [[fallthrough]];
+        case TYPE_OP:
+            {
+                switch (node->data)
+                {
+                    OP_PRINT ('^', "^");
+                    OP_PRINT ('+', "+");
+                    OP_PRINT ('-', "-");
+                    OP_PRINT ('*', "*");
+                    OP_PRINT ('/', "/");
+                    OP_PRINT ('!', "!");
+                    OP_PRINT ('=', "=");
+                    OP_PRINT (AE,  ">=");
+                    OP_PRINT (BE,  "<=");
+                    OP_PRINT (NE,  "!=");
+                    OP_PRINT (EE,  "==");
+                    OP_PRINT (OR,  "||");
+                    OP_PRINT (AND, "&&");
+                    default:
+                        printf ("Save base (%d): Invalid operation: %ld, "
+                                "node %p\n", __LINE__, node->data, node);
+                        break;
+                }
+            }
+            break;
         case TYPE_UNARY:
             {
                 int64_t data = node->data;
@@ -48,33 +77,38 @@ static void PrintNodeToBase (TNode *node)
             fprintf (Base_file, "%ld", node->data);
             break;
         default:
-            printf ("Graph build (%d): Invalid node type: %d, node %p\n",
+            printf ("Save base (%d): Invalid node type: %d, node %p\n",
                     __LINE__, node->type, node);
     }
 
     return;
 }
 
-static void BasePrintLBracket (TNode *node)
+static void TreeToBase (TNode *node)
 {
-    if (node)
-    {
-        fprintf (Base_file, "(");
-    }
-}
+    fprintf (Base_file, "(");
 
-static void BasePrintRBracket (TNode *node)
-{
-    if (node)
+    if (node->left)
     {
-        fprintf (Base_file, ")");
+        TreeToBase (node->left);
     }
+
+    PrintNodeToBase (node);
+
+    if (node->right)
+    {
+        TreeToBase (node->right);
+    }
+
+    fprintf (Base_file, ")");
+
+    return;
 }
 
 int SaveNode (TNode *node, const char *name)
 {
     OpenBaseFile (name);
-    VisitNode (node, BasePrintLBracket, PrintNodeToBase, BasePrintRBracket);
+    TreeToBase (node);
     CloseBaseFile();
 
     char command[100] = "mousepad ./";

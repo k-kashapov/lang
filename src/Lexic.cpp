@@ -95,8 +95,6 @@ static TNode *GetLexToken (LexicAn *lan)
         case '>': [[fallthrough]];
         case '=': [[fallthrough]];
         case '<':
-            printf ("next is %c\n", lan->str[1]);
-            fflush (stdout);
             if (lan->str[1] == '=')
             {
                 TNode *node = CreateNode (*lan->str + 2 * '=', TYPE_OP, declared);

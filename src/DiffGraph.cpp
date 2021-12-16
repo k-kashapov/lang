@@ -6,6 +6,10 @@ static FILE *Graph_file = NULL;
     case value:                                                                 \
         color = clr;                                                            \
         break
+#define OP_PRINT(value, to_print)                                               \
+    case value:                                                                 \
+        fprintf (Graph_file, to_print);                                         \
+        break;
 
 void OpenGraphFile (const char *name)
 {
@@ -55,6 +59,7 @@ void PrintNodeDot (TNode *node)
             color = "gold";
             shape = "octagon";
             break;
+        case TYPE_SERVICE: [[fallthrough]];
         case TYPE_ID:
             color = "lawngreen";
             shape = "invhouse";
@@ -79,7 +84,14 @@ void PrintNodeDot (TNode *node)
                 COLOR_CASE ('-', "cornflowerblue");
                 COLOR_CASE ('*', "lightcyan");
                 COLOR_CASE ('/', "orange");
+                COLOR_CASE ('!', "darkseagreen1");
                 COLOR_CASE ('=', "aqua");
+                COLOR_CASE (AE,  "darkorchid1");
+                COLOR_CASE (BE,  "deeppink");
+                COLOR_CASE (NE,  "mediumturquoise");
+                COLOR_CASE (EE,  "plum1");
+                COLOR_CASE (OR,  "lavender");
+                COLOR_CASE (AND, "royalblue");
                 default:
                     printf ("Graph build: Invalid operation: %ld, node %p\n", node->data, node);
             }
@@ -98,7 +110,8 @@ void PrintNodeDot (TNode *node)
 
     switch (node->type)
     {
-        case TYPE_VAR:  [[fallthrough]];
+        case TYPE_SERVICE: [[fallthrough]];
+        case TYPE_VAR:     [[fallthrough]];
         case TYPE_ID:
             {
                 fprintf (Graph_file, "%.*s", node->len, node->declared);
@@ -107,7 +120,30 @@ void PrintNodeDot (TNode *node)
         case TYPE_STATEMENT:
             fprintf (Graph_file, "statement");
             break;
-        case TYPE_OP:    [[fallthrough]];
+        case TYPE_OP:
+            {
+                switch (node->data)
+                {
+                    OP_PRINT ('^', "^");
+                    OP_PRINT ('+', "+");
+                    OP_PRINT ('-', "-");
+                    OP_PRINT ('*', "*");
+                    OP_PRINT ('/', "/");
+                    OP_PRINT ('!', "!");
+                    OP_PRINT ('=', "=");
+                    OP_PRINT (AE,  ">=");
+                    OP_PRINT (BE,  "<=");
+                    OP_PRINT (NE,  "!=");
+                    OP_PRINT (EE,  "==");
+                    OP_PRINT (OR,  "||");
+                    OP_PRINT (AND, "&&");
+                    default:
+                        printf ("Graph build (%d): Invalid operation: %ld, "
+                                "node %p\n", __LINE__, node->data, node);
+                        break;
+                }
+            }
+            break;
         case TYPE_UNARY:
             {
                 int64_t data = node->data;
@@ -134,11 +170,11 @@ int CreateNodeImage (TNode *node, const char *name)
     VisitNode (node, NULL, PrintNodeDot, NULL);
     CloseGraphFile();
 
-    char dot_command[100] = "dot dotInput.dot -Tpng -o ";
+    char dot_command[100] = "dot dotInput.dot -Tpng -o img/";
     strcat (dot_command, name);
     if (system (dot_command)) exit (-1);
 
-    char eog_command[100] = "eog ";
+    char eog_command[100] = "eog img/";
     strcat (eog_command, name);
 
     system (eog_command);
