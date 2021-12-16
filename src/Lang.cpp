@@ -1,13 +1,15 @@
 #include "Lang.h"
 
+static int COMPILATION_ERR = 0;
+
 static void MovePtr (Trans *trans)
 {
-    trans->s++;
+    trans->tok++;
 }
 
 static TNode *GetTok (Trans *trans)
 {
-    return *trans->s;
+    return *trans->tok;
 }
 
 static int CheckTok (Trans *trans, const char *req)
@@ -32,6 +34,7 @@ static int CheckTok (Trans *trans, const char *req)
         {                                                                       \
             SyntaxErr ("Invalid syntax. Expected: " text                        \
                        "\ngot: %.*s\n", got->len, got->declared);               \
+            COMPILATION_ERR = REQUIRE_FAIL;                                     \
             return 0;                                                           \
         }                                                                       \
     }
@@ -49,13 +52,19 @@ static int Require_ (Trans *trans, int req)
 }
 #undef PHRASE
 
-#define Require(val) if (!Require_ (trans, val)) return NULL;
+#define Require(req) if (!Require_ (trans, req)) return NULL;
+
+#define LOCAL_IDS(CODE)                                                         \
+    initIds = trans->IdsNum;                                                    \
+    CODE                                                                        \
+    $ RmId (TRANS_IDS, trans->IdsNum - initIds);
 
 static TNode *CreateNodeWithStr (const char *id, int type = TYPE_ID)
 {
     $$ int len   = (int) strlen (id);
     TNode *node = CreateNode (SimpleHash (id, len), type, id);
     node->len   = len;
+
     return node;
 }
 
@@ -66,7 +75,7 @@ TNode *GetSt (Trans *trans, const char *end_cond)
     $ TNode *stmt = ST (NULL, GetOP (trans));
     TNode *curr = stmt;
 
-    while (!CheckTok (trans, end_cond))
+    while (!CheckTok (trans, end_cond) && curr)
     {
         $ curr = ST (curr, GetOP (trans));
         if (!curr->right) break;
@@ -93,7 +102,7 @@ TNode *GetN (Trans *trans)
     {
         SyntaxErr ("Invalid type: expected CONST, got %.*s (%d)\n",
                    node->len, node->declared, node->type);
-        return NULL;
+        return node;
     }
     MovePtr (trans);
 
@@ -153,9 +162,9 @@ TNode *GetNeg (Trans *trans)
 
     if (!val) return NULL;
 
-    if (CheckTok (trans, "!"))
+    if (CheckTok (trans, "Нифига"))
     {
-        MovePtr (trans);
+        Require (NEG);
         val = CreateNode ('!', TYPE_OP, val->declared, NULL, GetP (trans));
         val->len = 1;
     }
@@ -343,8 +352,10 @@ TNode *GetFunc (Trans *trans)
     $ Require (DEFSTART);
     TNode *val = CreateNodeWithStr ("define", TYPE_SERVICE);
 
-    int initIds = trans->IdsNum;
+    int initIds = 0;
 
+    LOCAL_IDS
+    (
     TNode *name = GetTok (trans);
     MovePtr (trans);
 
@@ -397,8 +408,7 @@ TNode *GetFunc (Trans *trans)
     val->right = body;
 
     Require (RETEND);
-
-    $ RmId (TRANS_IDS, trans->IdsNum - initIds);
+    )
 
     return val;
 }
@@ -421,8 +431,15 @@ TNode *GetCall (Trans *trans)
     {
         curr->left        = CreateNodeWithStr ("parameter", TYPE_SERVICE);
         curr              = curr->left;
-        curr->right       = GetTok (trans);
-        curr->right->type = TYPE_VAR;
+        TNode *var        = GetTok (trans);
+        if (FindId (TRANS_IDS, var->data) < 0)
+        {
+            SyntaxErr ("Call: Using an undeclared variable: %.*s\n",
+                       var->len, var->declared);
+            return NULL;
+        }
+
+        curr->right = var;
 
         MovePtr (trans);
     }
@@ -457,27 +474,38 @@ TNode *GetIF (Trans *trans)
     TNode *curr = val->right;
     $ Require (IFTHEN);
 
+    int initIds = 0;
+
+    LOCAL_IDS
+    (
     curr->left = GetSt (trans, "Ставь");
     $ Require (IFELSE);
+    )
 
+    LOCAL_IDS
+    (
     curr->right = GetSt (trans, "и");
     $ Require (IFEND);
+    )
 
     return val;
 }
 
 TNode *GetWhile (Trans *trans)
 {
+    int initIds = 0;
+    LOCAL_IDS
+    (
     $ Require (WHILESTART);
 
     TNode *val  = CreateNodeWithStr ("while", TYPE_SERVICE);
 
     val->right  = GetE (trans);
-    $ Require (WHILEDO);
+    $ Require (RAZ);
 
     val->left   = GetSt (trans, "Дверь");
     $ Require (WHILEEND);
-
+    )
     return val;
 }
 
@@ -525,9 +553,17 @@ TNode *Assn (Trans *trans)
     Require (ASSNIS);
 
     TNode *value = GetE (trans);
+    int   idNum  = FindId (TRANS_IDS, var->data);
 
-    if (FindId (TRANS_IDS, var->data) >= 0)
+    if (idNum >= 0)
     {
+        if (trans->IdsArr[idNum].isConst == 1)
+        {
+            SyntaxErr ("Assn: Changing constant variable is forbidden: %.*s\n",
+                       var->len, var->declared);
+            return NULL;
+        }
+
         var->type   = TYPE_VAR;
         TNode *node = CreateNodeWithStr ("=", TYPE_OP);
         node->left  = var;
@@ -545,31 +581,42 @@ TNode *GetDec (Trans *trans)
 
     TNode *idtok = GetTok (trans);
     MovePtr (trans);
-
-    Require (DECLEND);
-
     if (FindId (TRANS_IDS, idtok->data) >= 0)
     {
         SyntaxErr ("Re-declaration of variable: %.*s\n",
                    idtok->len, idtok->declared);
         return NULL;
     }
+    TNode *val  = CreateNode ('=', TYPE_OP, idtok->declared, idtok);
+    idtok->type = TYPE_VAR;
 
-    if (CheckTok (trans, "У"))
+    if (CheckTok (trans, "всегда"))
     {
-        Require (TOCONST);
+        MovePtr (trans);
+        val->right = GetN (trans);
+
         $ AddId (TRANS_IDS, idtok->data, 1);
         idtok->left = CreateNodeWithStr ("const", TYPE_SERVICE);
     }
     else
     {
+        val->right      = CreateNode (0, TYPE_CONST);
+        val->right->len = 1;
         $ AddId (TRANS_IDS, idtok->data, 0);
     }
 
-    idtok->type     = TYPE_VAR;
-    TNode *val      = CreateNode ('=', TYPE_OP, idtok->declared, idtok);
-    val->right      = CreateNode (0, TYPE_CONST);
-    val->right->len = 1;
+    Require (DECLEND);
+
+    TNode *arr_len = GetN (trans);
+    if (arr_len->data <= 0)
+    {
+        SyntaxErr ("Invalid array length: arr %.*s of len %d\n",
+                   idtok->len, idtok->declared, arr_len->data);
+        return NULL;
+    }
+    Require (RAZ);
+
+    idtok->right = arr_len;
 
     return val;
 }

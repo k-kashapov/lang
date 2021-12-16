@@ -27,13 +27,14 @@ int main (int argc, const char **argv)
             return -1;
         }
 
-        int nodesNum  = 0;
+        int nodesNum = 0;
         TNode **nodes = LexicAnalysis (code, &nodesNum);
 
         Trans trans   = {};
         trans.IdsArr  = (Id *)     calloc (INIT_IDS_NUM, sizeof (Id));
         trans.FuncArr = (FuncId *) calloc (INIT_IDS_NUM, sizeof (FuncId));
-        trans.s       = nodes;
+        trans.tok     = nodes;
+        trans.ce      = 0;
 
         res = GetG (&trans);
 

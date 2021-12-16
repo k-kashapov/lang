@@ -28,9 +28,10 @@ struct Trans
 {
     Id     *IdsArr;
     int    IdsNum;
-    TNode  **s;
+    TNode  **tok;
     FuncId *FuncArr;
     int     FuncsNum;
+    int     ce;
 };
 
 enum LANG_EXIT_CODES
