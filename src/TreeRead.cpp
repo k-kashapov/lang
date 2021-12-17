@@ -148,6 +148,8 @@ int ProcessChar (Reader *rdr)
 {
     printf ("---------\ncurr char is %c (%d)\n", *rdr->src, *rdr->src);
 
+    while (isspace (*rdr->src)) rdr->src++;
+
     if (IsAlpha (*rdr->src) || *rdr->src == '\'')
     {
         $ return ProcessAlpha (rdr);

@@ -5,11 +5,12 @@
 
 static int idCap = INIT_IDS_NUM;
 
-int AddId (Id **IdsArr, int *IdsNum, int64_t hash, char isConst)
+int AddId (Id **IdsArr, int *IdsNum, int64_t hash, char isConst, int len)
 {
     Id new_id      = {};
     new_id.hash    = hash;
     new_id.isConst = isConst;
+    new_id.len     = len;
 
     $ LogMsg ("\tnew hash = %ld\n", hash);
 

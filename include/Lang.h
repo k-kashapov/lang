@@ -16,6 +16,7 @@ struct Id
 {
     int64_t hash;
     char    isConst;
+    int     len;
 };
 
 struct FuncId
@@ -102,6 +103,8 @@ TNode *GetSt (Trans *trans, const char *end_cond);
 
 TNode *GetN (Trans *trans);
 
+TNode *GetID (Trans *trans);
+
 TNode *GetP (Trans *trans);
 
 TNode *GetT (Trans *trans);
@@ -156,7 +159,7 @@ int Translate (TNode *root, const char *name);
 
 void FreeTransTree (TNode *root, TNode **nodes, int nodesNum);
 
-int AddId (Id **IdsArr, int *IdsNum, int64_t hash, char isConst = 0);
+int AddId (Id **IdsArr, int *IdsNum, int64_t hash, char isConst = 0, int len = 1);
 
 int FindId (Id **IdsArr, int *IdsNum, int64_t hash);
 

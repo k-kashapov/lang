@@ -94,6 +94,46 @@ TNode *GetG (Trans *trans)
     return root;
 }
 
+TNode *GetID (Trans *trans)
+{
+    TNode *token = GetTok (trans);
+
+    for (int func_id = 0; func_id < UnaryNum; func_id++)
+    {
+        if (token->data == UnaryFuncs[func_id])
+        {
+            TNode *action = GetTok (trans);
+            MovePtr (trans);
+            action->right = GetP (trans);
+            return action;
+        }
+    }
+
+    int idNum = FindId (TRANS_IDS, token->data);
+
+    if (idNum >= 0)
+    {
+        MovePtr (trans);
+        token->type  = TYPE_VAR;
+        if (CheckTok (trans, "("))
+        {
+            Require (IDX);
+            token->right = GetN (trans);
+            Require (IDXEND);
+        }
+        else
+        {
+            token->right = CreateNode (0, TYPE_CONST);
+        }
+        return token;
+    }
+
+    SyntaxErr ("Get ID: Using an undeclared variable: %.*s\n",
+               token->len,
+               token->declared);
+    return NULL;
+}
+
 TNode *GetN (Trans *trans)
 {
     $$ TNode *node = GetTok (trans);
@@ -111,8 +151,6 @@ TNode *GetN (Trans *trans)
 
 TNode *GetP (Trans *trans)
 {
-    $$ TNode *token = GetTok (trans);
-
     if (CheckTok (trans, "Биба")) // Left bracket '('
     {
         MovePtr (trans);
@@ -125,30 +163,9 @@ TNode *GetP (Trans *trans)
     {
         return GetCall (trans);
     }
-    else if (token->type == TYPE_ID)
+    else if (GetTok (trans)->type == TYPE_ID)
     {
-        for (int func_id = 0; func_id < UnaryNum; func_id++)
-        {
-            if (token->data == UnaryFuncs[func_id])
-            {
-                TNode *action = GetTok (trans);
-                MovePtr (trans);
-                action->right = GetP (trans);
-                return action;
-            }
-        }
-
-        if (FindId (TRANS_IDS, token->data) >= 0)
-        {
-            MovePtr (trans);
-            token->type = TYPE_VAR;
-            return token;
-        }
-
-        SyntaxErr ("Get ID: Using an undeclared variable: %.*s\n",
-                   token->len,
-                   token->declared);
-        return NULL;
+        return GetID (trans);
     }
     else
     {
@@ -498,12 +515,12 @@ TNode *GetWhile (Trans *trans)
     (
     $ Require (WHILESTART);
 
-    TNode *val  = CreateNodeWithStr ("while", TYPE_SERVICE);
+    TNode *val = CreateNodeWithStr ("while", TYPE_SERVICE);
 
-    val->right  = GetE (trans);
+    val->right = GetE (trans);
     $ Require (RAZ);
 
-    val->left   = GetSt (trans, "Дверь");
+    val->left  = GetSt (trans, "Дверь");
     $ Require (WHILEEND);
     )
     return val;
@@ -511,8 +528,7 @@ TNode *GetWhile (Trans *trans)
 
 TNode *GetOP (Trans *trans)
 {
-    $ TNode *val = NULL;
-    while (CheckTok (trans, "\""))
+    $ if (CheckTok (trans, "\""))
     {
         return GetDec (trans);
     }
@@ -537,18 +553,14 @@ TNode *GetOP (Trans *trans)
         return GetCall (trans);
     }
 
-    val = Assn (trans);
-
-    Require (DOT);
-    return val;
+    return Assn (trans);
 }
 
 TNode *Assn (Trans *trans)
 {
     $ Require (ASSNSTART);
 
-    TNode *var = GetTok (trans);
-    MovePtr (trans);
+    TNode *var = GetID (trans);
 
     Require (ASSNIS);
 
@@ -568,6 +580,8 @@ TNode *Assn (Trans *trans)
         TNode *node = CreateNodeWithStr ("=", TYPE_OP);
         node->left  = var;
         node->right = value;
+
+        Require (DOT);
         return node;
     }
 
@@ -590,19 +604,20 @@ TNode *GetDec (Trans *trans)
     TNode *val  = CreateNode ('=', TYPE_OP, idtok->declared, idtok);
     idtok->type = TYPE_VAR;
 
+    char isConst = 0;
+
     if (CheckTok (trans, "всегда"))
     {
+        isConst = 1;
         MovePtr (trans);
         val->right = GetN (trans);
 
-        $ AddId (TRANS_IDS, idtok->data, 1);
         idtok->left = CreateNodeWithStr ("const", TYPE_SERVICE);
     }
     else
     {
         val->right      = CreateNode (0, TYPE_CONST);
         val->right->len = 1;
-        $ AddId (TRANS_IDS, idtok->data, 0);
     }
 
     Require (DECLEND);
@@ -617,6 +632,8 @@ TNode *GetDec (Trans *trans)
     Require (RAZ);
 
     idtok->right = arr_len;
+
+    $ AddId (TRANS_IDS, idtok->data, isConst, (int) arr_len->data);
 
     return val;
 }

@@ -111,6 +111,8 @@ static TNode *GetLexToken (LexicAn *lan)
         case '/': [[fallthrough]];
         case ',': [[fallthrough]];
         case ':': [[fallthrough]];
+        case ')': [[fallthrough]];
+        case '(': [[fallthrough]];
         case '\"':
             {
                 TNode *node = CreateNode (*lan->str, TYPE_OP, declared);
