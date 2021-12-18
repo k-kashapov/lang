@@ -51,7 +51,7 @@ const int64_t UnaryFuncs[] =
 {
     SimpleHash ("sin",  3),
     SimpleHash ("cos",  3),
-    SimpleHash ("diff", 4)
+    SimpleHash ("sqrt", 4)
 };
 
 #define SERVICE_HASH(val) SimpleHash (val, strlen (val))
@@ -65,7 +65,8 @@ const int64_t ServiceNodes[] =
     SERVICE_HASH ("decision"),
     SERVICE_HASH ("while"),
     SERVICE_HASH ("return"),
-    SERVICE_HASH ("out")
+    SERVICE_HASH ("out"),
+    SERVICE_HASH ("in")
 };
 #undef SERVICE_HASH
 
@@ -80,6 +81,7 @@ enum ServiceHash
     WHILE,
     RET,
     OUT,
+    IN,
 };
 
 #define TRANS_IDS &trans->IdsArr, &trans->IdsNum
@@ -127,7 +129,7 @@ TNode *GetPow (Trans *trans);
 
 TNode *Assn (Trans *trans);
 
-TNode *GetG (Trans *trans);
+TNode *GetG (Trans *trans, int *ce);
 
 TNode *GetFunc (Trans *trans);
 

@@ -1,6 +1,19 @@
 #include "Lang.h"
 
-static int COMPILATION_ERR = 0;
+static int COMP_ERR = 0;
+
+int SyntaxErr (const char *msg, ...)
+{
+    COMP_ERR = 1;
+    printf ("SYNTAX ERROR: ");
+
+    va_list arg = {};
+    va_start (arg, msg);
+    vprintf (msg, arg);
+    va_end (arg);
+
+    return 0;
+}
 
 static void MovePtr (Trans *trans)
 {
@@ -34,7 +47,7 @@ static int CheckTok (Trans *trans, const char *req)
         {                                                                       \
             SyntaxErr ("Invalid syntax. Expected: " text                        \
                        "\ngot: %.*s\n", got->len, got->declared);               \
-            COMPILATION_ERR = REQUIRE_FAIL;                                     \
+            LogMsg ("Invalid syntax code: %s\n", got->declared);                \
             return 0;                                                           \
         }                                                                       \
     }
@@ -52,7 +65,7 @@ static int Require_ (Trans *trans, int req)
 }
 #undef PHRASE
 
-#define Require(req) if (!Require_ (trans, req)) return NULL;
+#define Require(req) if (!Require_ (trans, req)) {COMP_ERR = 1; return root;}
 
 #define LOCAL_IDS(CODE)                                                         \
     initIds = trans->IdsNum;                                                    \
@@ -84,21 +97,21 @@ TNode *GetSt (Trans *trans, const char *end_cond)
     return curr;
 }
 
-TNode *GetG (Trans *trans)
+TNode *GetG (Trans *trans, int *ce)
 {
     TNode *root = GetSt (trans, "Развернулся");
-
+    *ce = COMP_ERR;
     Require (PROG_END);
     return root;
 }
 
 TNode *GetID (Trans *trans)
 {
-    TNode *token = GetTok (trans);
+    TNode *root = GetTok (trans);
 
     for (int func_id = 0; func_id < UnaryNum; func_id++)
     {
-        if (token->data == UnaryFuncs[func_id])
+        if (root->data == UnaryFuncs[func_id])
         {
             TNode *action = GetTok (trans);
             MovePtr (trans);
@@ -107,48 +120,48 @@ TNode *GetID (Trans *trans)
         }
     }
 
-    int idNum = FindId (TRANS_IDS, token->data);
+    int idNum = FindId (TRANS_IDS, root->data);
 
     if (idNum >= 0)
     {
         MovePtr (trans);
-        token->type  = TYPE_VAR;
+        root->type  = TYPE_VAR;
         if (CheckTok (trans, "("))
         {
             Require (IDX);
-            token->right = GetN (trans);
+            root->right = GetN (trans);
             Require (IDXEND);
         }
         else
         {
-            token->right = CreateNode (0, TYPE_CONST);
+            root->right = CreateNode (0, TYPE_CONST);
         }
-        return token;
+        return root;
     }
 
     SyntaxErr ("Get ID: Using an undeclared variable: %.*s\n",
-               token->len,
-               token->declared);
-    return NULL;
+               root->len,
+               root->declared);
+    return root;
 }
 
 TNode *GetN (Trans *trans)
 {
     $$ TNode *node = GetTok (trans);
+    MovePtr (trans);
 
     if (node->type != TYPE_CONST)
     {
         SyntaxErr ("Invalid type: expected CONST, got %.*s (%d)\n",
                    node->len, node->declared, node->type);
-        return node;
     }
-    MovePtr (trans);
 
     return node;
 }
 
 TNode *GetP (Trans *trans)
 {
+    TNode *root = NULL;
     if (CheckTok (trans, "Биба")) // Left bracket '('
     {
         MovePtr (trans);
@@ -160,6 +173,11 @@ TNode *GetP (Trans *trans)
     else if (CheckTok (trans, "Анекдот"))
     {
         return GetCall (trans);
+    }
+    else if (CheckTok (trans, "ввод"))
+    {
+        Require (IN_PH);
+        return CreateNodeWithStr ("in", TYPE_SERVICE);
     }
     else if (GetTok (trans)->type == TYPE_ID)
     {
@@ -173,29 +191,29 @@ TNode *GetP (Trans *trans)
 
 TNode *GetNeg (Trans *trans)
 {
-    $$ TNode *val = GetTok (trans);
+    $$ TNode *root = GetTok (trans);
 
-    if (!val) return NULL;
+    if (!root) return NULL;
 
     if (CheckTok (trans, "Нифига"))
     {
         Require (NEG);
-        val = CreateNode ('!', TYPE_OP, val->declared, NULL, GetP (trans));
-        val->len = 1;
+        root = CreateNode ('!', TYPE_OP, root->declared, NULL, GetP (trans));
+        root->len = 1;
     }
     else
     {
-        val = GetP (trans);
+        root = GetP (trans);
     }
 
-    return val;
+    return root;
 }
 
 TNode *GetPow (Trans *trans)
 {
-    $$ TNode *val = GetNeg (trans);
+    $$ TNode *root = GetNeg (trans);
 
-    if (!val) return NULL;
+    if (!root) return NULL;
 
     if (CheckTok (trans, "^"))
     {
@@ -203,41 +221,42 @@ TNode *GetPow (Trans *trans)
         MovePtr (trans);
 
         TNode *rVal   = GetNeg (trans);
-        action->left  = val;
+        action->left  = root;
         action->right = rVal;
         TNode *curr   = action;
 
         while (CheckTok (trans, "^"))
         {
             TNode *new_action = GetTok (trans);
+            MovePtr (trans);
             new_action->left  = curr->right;
             curr->right       = new_action;
             curr              = new_action;
             curr->right       = GetNeg (trans);
         }
 
-        val = action;
+        root = action;
     }
 
-    return val;
+    return root;
 }
 
 TNode *GetT (Trans *trans)
 {
-    $$ TNode *val = GetPow (trans);
+    $$ TNode *root = GetPow (trans);
 
-    if (!val) return NULL;
+    if (!root) return NULL;
 
     if (CheckTok (trans, "дофига") ||
         CheckTok (trans, "/"))
     {
         TNode *action = GetTok (trans);
-        if (action->data != '/') action->data = '*';
         action->type  = TYPE_OP;
+        if (action->data != '/') action->data = '*';
         MovePtr (trans);
 
         TNode *rVal   = GetPow (trans);
-        action->left  = val;
+        action->left  = root;
         action->right = rVal;
         TNode *curr   = action;
 
@@ -245,6 +264,7 @@ TNode *GetT (Trans *trans)
                CheckTok (trans, "/"))
         {
             TNode *new_action = GetTok (trans);
+            MovePtr (trans);
             if (new_action->data != '/') new_action->data = '*';
             new_action->type  = TYPE_OP;
             new_action->left  = curr->right;
@@ -253,17 +273,17 @@ TNode *GetT (Trans *trans)
             curr->right       = GetPow (trans);
         }
 
-        val = action;
+        root = action;
     }
 
-    return val;
+    return root;
 }
 
 TNode *GetSum (Trans *trans)
 {
-    $$ TNode *val = GetT (trans);
+    $$ TNode *root = GetT (trans);
 
-    if (!val) return NULL;
+    if (!root) return NULL;
 
     if (CheckTok (trans, "+") ||
         CheckTok (trans, "-"))
@@ -272,7 +292,7 @@ TNode *GetSum (Trans *trans)
         MovePtr (trans);
 
         TNode *rVal   = GetT (trans);
-        action->left  = val;
+        action->left  = root;
         action->right = rVal;
         TNode *curr   = action;
 
@@ -280,23 +300,24 @@ TNode *GetSum (Trans *trans)
                CheckTok (trans, "-"))
         {
             TNode *new_action = GetTok (trans);
+            MovePtr (trans);
             new_action->left  = curr->right;
             curr->right       = new_action;
             curr              = new_action;
             curr->right       = GetT (trans);
         }
 
-        val = action;
+        root = action;
     }
 
-    return val;
+    return root;
 }
 
 TNode *GetCmp (Trans *trans)
 {
-    $$ TNode *val = GetSum (trans);
+    $$ TNode *root = GetSum (trans);
 
-    $$ if (!val) return NULL;
+    $$ if (!root) return NULL;
 
     if (CheckTok (trans, ">")  ||
         CheckTok (trans, "<")  ||
@@ -309,7 +330,7 @@ TNode *GetCmp (Trans *trans)
         MovePtr (trans);
 
         TNode *rVal   = GetSum (trans);
-        action->left  = val;
+        action->left  = root;
         action->right = rVal;
         TNode *curr   = action;
 
@@ -321,23 +342,24 @@ TNode *GetCmp (Trans *trans)
                CheckTok (trans, "!="))
         {
             TNode *new_action = GetTok (trans);
+            MovePtr (trans);
             new_action->left  = curr->right;
             curr->right       = new_action;
             curr              = new_action;
             curr->right       = GetSum (trans);
         }
 
-        val = action;
+        root = action;
     }
 
-    return val;
+    return root;
 }
 
 TNode *GetE (Trans *trans)
 {
-    $$ TNode *val = GetCmp (trans);
+    $$ TNode *root = GetCmp (trans);
 
-    if (!val) return NULL;
+    if (!root) return NULL;
 
     if (CheckTok (trans, "||") ||
         CheckTok (trans, "&&"))
@@ -347,7 +369,7 @@ TNode *GetE (Trans *trans)
         MovePtr (trans);
 
         TNode *rVal   = GetCmp (trans);
-        action->left  = val;
+        action->left  = root;
         action->right = rVal;
         TNode *curr   = action;
 
@@ -355,6 +377,7 @@ TNode *GetE (Trans *trans)
                CheckTok (trans, "&&"))
         {
             TNode *new_action = GetTok (trans);
+            MovePtr (trans);
             new_action->type  = TYPE_OP;
             new_action->left  = curr->right;
             curr->right       = new_action;
@@ -362,19 +385,18 @@ TNode *GetE (Trans *trans)
             curr->right       = GetCmp (trans);
         }
 
-        val = action;
+        root = action;
     }
 
-    return val;
+    return root;
 }
 
 static TNode *GetFuncParams (Trans *trans)
 {
+    TNode *root = CreateNodeWithStr ("function", TYPE_SERVICE);
     Require (DEFNAME);
-    TNode *func = CreateNodeWithStr ("function", TYPE_SERVICE);
     Require (DEFPARAM);
-
-    TNode *curr       = func;
+    TNode *curr       = root;
     curr->right       = CreateNodeWithStr ("parameter", TYPE_SERVICE);
     curr              = curr->right;
     curr->right       = GetTok (trans);
@@ -396,13 +418,13 @@ static TNode *GetFuncParams (Trans *trans)
     }
     MovePtr (trans);
 
-    return func;
+    return root;
 }
 
 TNode *GetFunc (Trans *trans)
 {
+    TNode *root = CreateNodeWithStr ("define", TYPE_SERVICE);
     $ Require (DEFSTART);
-    TNode *val = CreateNodeWithStr ("define", TYPE_SERVICE);
 
     int initIds = 0;
 
@@ -412,16 +434,17 @@ TNode *GetFunc (Trans *trans)
     if (CheckTok (trans, "Купил"))
     {
         Require (MAIN_INIT);
+        TNode *body     = ST (GetSt (trans, "А"), NULL);
+        Require (MAIN_END);
         name            = CreateNode (MAIN_HASH, TYPE_SERVICE, "main");
         name->len       = 4;
-        val->left       = CreateNodeWithStr ("function", TYPE_SERVICE);
-        val->left->left = name;
+        root->left       = CreateNodeWithStr ("function", TYPE_SERVICE);
+        root->left->left = name;
         TNode *ret      = CreateNodeWithStr ("return", TYPE_SERVICE);
         ret->right      = CreateNode (0, TYPE_CONST);
-        TNode *body     = ST (GetSt (trans, "А"), ret);
-        val->right      = body;
-        Require (MAIN_END);
-        return val;
+        body->right     = ret;
+        root->right      = body;
+        return root;
     }
     else
     {
@@ -432,40 +455,38 @@ TNode *GetFunc (Trans *trans)
         {
             SyntaxErr ("Invalid function type: %d at %.*s\n",
                        name->type, name->len, name->declared);
-            return NULL;
+            return root;
         }
 
-        val->left       = GetFuncParams (trans);
-        val->left->left = name;
+        root->left       = GetFuncParams (trans);
+        root->left->left = name;
     }
 
-    TNode *body = GetSt (trans, "Козырная");
-
+    TNode *body    = GetSt (trans, "Козырная");
+    TNode *ret_val = NULL;
     MovePtr (trans);
-
-    TNode *ret = CreateNodeWithStr ("return", TYPE_SERVICE);
-    body  = ST (body, ret);
-
     if (!CheckTok (trans, ","))
     {
-        ret->right = GetE (trans);
+        ret_val = GetE (trans);
     }
-
-    val->right = body;
-
     Require (RETEND);
+
+    TNode *ret = CreateNodeWithStr ("return", TYPE_SERVICE);
+    ret->right = ret_val;
+    body       = ST (body, ret);
+
+    root->right = body;
     )
 
-    return val;
+    return root;
 }
 
 TNode *GetCall (Trans *trans)
 {
+    TNode *root  = CreateNodeWithStr ("call", TYPE_SERVICE);
     $ Require (ANEK);
-
-    TNode *val  = CreateNodeWithStr ("call", TYPE_SERVICE);
-    val->right  = CreateNodeWithStr ("function", TYPE_SERVICE);
-    TNode *curr = val->right;
+    root->right  = CreateNodeWithStr ("function", TYPE_SERVICE);
+    TNode *curr = root->right;
 
     curr->right       = CreateNodeWithStr ("parameter", TYPE_SERVICE);
     curr              = curr->right;
@@ -482,31 +503,30 @@ TNode *GetCall (Trans *trans)
     MovePtr (trans);
 
     Require (ANEKNAME);
-    val->right->left = GetTok (trans);
-    if (val->right->left->type != TYPE_ID)
+    root->right->left = GetTok (trans);
+    if (root->right->left->type != TYPE_ID)
     {
         SyntaxErr ("Invalid type: expected id; got %d\n", curr->right->type);
-        DestructNode (val);
+        DestructNode (root);
         return NULL;
     }
 
     MovePtr (trans);
     Require (DOT);
 
-    return val;
+    return root;
 }
 
 TNode *GetIF (Trans *trans)
 {
+    TNode *root = CreateNodeWithStr ("if", TYPE_SERVICE);
     $ Require (IFSTART);
 
-    TNode *val = CreateNodeWithStr ("if", TYPE_SERVICE);
+    $ root->left = GetE (trans);
+    if (!root->left) return NULL;
 
-    $ val->left = GetE (trans);
-    if (!val->left) return NULL;
-
-    val->right  = CreateNodeWithStr ("decision", TYPE_SERVICE);
-    TNode *curr = val->right;
+    root->right  = CreateNodeWithStr ("decision", TYPE_SERVICE);
+    TNode *curr = root->right;
     $ Require (IFTHEN);
 
     int initIds = 0;
@@ -523,7 +543,7 @@ TNode *GetIF (Trans *trans)
     $ Require (IFEND);
     )
 
-    return val;
+    return root;
 }
 
 TNode *GetWhile (Trans *trans)
@@ -531,17 +551,16 @@ TNode *GetWhile (Trans *trans)
     int initIds = 0;
     LOCAL_IDS
     (
+    TNode *root = CreateNodeWithStr ("while", TYPE_SERVICE);
     $ Require (WHILESTART);
 
-    TNode *val = CreateNodeWithStr ("while", TYPE_SERVICE);
-
-    val->left = GetE (trans);
+    root->left = GetE (trans);
     $ Require (RAZ);
 
-    val->right = GetSt (trans, "Дверь");
+    root->right = GetSt (trans, "Дверь");
     $ Require (WHILEEND);
     )
-    return val;
+    return root;
 }
 
 TNode *GetOP (Trans *trans)
@@ -573,11 +592,11 @@ TNode *GetOP (Trans *trans)
 
     if (CheckTok (trans, "Голос"))
     {
+        TNode *root = CreateNodeWithStr ("out", TYPE_SERVICE);
         Require (OUT_PH);
-        TNode *node = CreateNodeWithStr ("out", TYPE_SERVICE);
-        node->right = GetID (trans);
+        root->right = GetID (trans);
         MovePtr (trans);
-        return node;
+        return root;
     }
 
     return Assn (trans);
@@ -585,13 +604,15 @@ TNode *GetOP (Trans *trans)
 
 TNode *Assn (Trans *trans)
 {
+    TNode *root = CreateNodeWithStr ("=", TYPE_OP);
+
     $ Require (ASSNSTART);
 
     TNode *var = GetID (trans);
 
     Require (ASSNIS);
 
-    TNode *value = GetE (trans);
+    TNode *rootue = GetE (trans);
     int   idNum  = FindId (TRANS_IDS, var->data);
 
     if (idNum >= 0)
@@ -604,12 +625,11 @@ TNode *Assn (Trans *trans)
         }
 
         var->type   = TYPE_VAR;
-        TNode *node = CreateNodeWithStr ("=", TYPE_OP);
-        node->left  = var;
-        node->right = value;
+        root->left  = var;
+        root->right = rootue;
 
         Require (DOT);
-        return node;
+        return root;
     }
 
     SyntaxErr ("Assn: Using an undeclared variable: %.*s\n", var->len, var->declared);
@@ -618,6 +638,7 @@ TNode *Assn (Trans *trans)
 
 TNode *GetDec (Trans *trans)
 {
+    TNode *root = NULL;
     $ Require (KAVYCHKA);
 
     TNode *idtok = GetTok (trans);
@@ -628,7 +649,7 @@ TNode *GetDec (Trans *trans)
                    idtok->len, idtok->declared);
         return NULL;
     }
-    TNode *val  = CreateNode ('=', TYPE_OP, idtok->declared, idtok);
+    root  = CreateNode ('=', TYPE_OP, idtok->declared, idtok);
     idtok->type = TYPE_VAR;
 
     char isConst = 0;
@@ -637,14 +658,14 @@ TNode *GetDec (Trans *trans)
     {
         isConst = 1;
         MovePtr (trans);
-        val->right = GetN (trans);
+        root->right = GetN (trans);
 
         idtok->left = CreateNodeWithStr ("const", TYPE_SERVICE);
     }
     else
     {
-        val->right      = CreateNode (0, TYPE_CONST);
-        val->right->len = 1;
+        root->right      = CreateNode (0, TYPE_CONST);
+        root->right->len = 1;
     }
 
     Require (DECLEND);
@@ -662,12 +683,21 @@ TNode *GetDec (Trans *trans)
 
     $ AddId (TRANS_IDS, idtok->data, isConst, (int) arr_len->data);
 
-    return val;
+    return root;
 }
 
 void FreeTransTree (TNode *root, TNode **nodes, int nodesNum)
 {
-    $ for (int node = 0; node < nodesNum; node++)
+    $ if (!root)
+    {
+        for (int node = 0; node < nodesNum; node++)
+        {
+            free (nodes[node]);
+        }
+        return;
+    }
+
+    for (int node = 0; node < nodesNum; node++)
     {
         nodes[node]->type = TYPE_DEAD;
     }

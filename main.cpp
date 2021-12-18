@@ -36,9 +36,10 @@ int main (int argc, const char **argv)
         trans.tok     = nodes;
         trans.ce      = 0;
 
-        res = GetG (&trans);
+        int comp_err = 0;
+        res = GetG (&trans, &comp_err);
 
-        if (!res)
+        if (comp_err)
         {
             FreeTransTree (res, nodes, nodesNum);
             free (trans.IdsArr);

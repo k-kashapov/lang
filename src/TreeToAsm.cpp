@@ -71,20 +71,28 @@ static int PrintCALL (TNode *node)
 static int PrintNeg (TNode *node)
 {
     $ static int negsNum = 0;
+    int localNegsNum = negsNum;
+    negsNum++;
     PrintA ("; !");
 
     Tabs++;
     PrintA ("push 0");
     NodeToAsm (RIGHT);
-    PrintA ("je :%dis0", negsNum);
+    PrintA ("je :%dis0", localNegsNum);
     PrintA ("push 0");
-    PrintA ("jmp :%dnegEnd", negsNum);
-    PrintA ("%dis0:", negsNum);
+    PrintA ("jmp :%dnegEnd", localNegsNum);
+    PrintA ("%dis0:", localNegsNum);
     PrintA ("push 1");
-    PrintA ("%dnegEnd:", negsNum);
+    PrintA ("%dnegEnd:", localNegsNum);
     Tabs--;
 
-    negsNum++;
+    return 0;
+}
+
+static int PrintIN (TNode *node)
+{
+    $ if (!node) return 1;
+    PrintA ("in");
     return 0;
 }
 
@@ -100,53 +108,55 @@ static int PrintOUT (TNode *node)
 static int PrintIF (TNode *node)
 {
     $ static int ifNum = 0;
+    int localIfNum = ifNum;
+    ifNum++;
 
     PrintA ("; if statement");
     Tabs++;
     NodeToAsm (LEFT);
 
     PrintA ("push 0");
-    PrintA ("je :%dfalse", ifNum);
+    PrintA ("je :%dfalse", localIfNum);
 
     TNode *decis = RIGHT;
 
     if (decis->left)
         NodeToAsm (decis->left);
-    PrintA ("jmp :%denif", ifNum);
+    PrintA ("jmp :%denif", localIfNum);
 
-    PrintA ("%dfalse:", ifNum);
+    PrintA ("%dfalse:", localIfNum);
     if (decis->right)
         NodeToAsm (decis->right);
 
-    PrintA ("%denif:", ifNum);
+    PrintA ("%denif:", localIfNum);
     Tabs--;
 
-    ifNum++;
     return 0;
 }
 
 static int PrintWHILE (TNode *node)
 {
     static int whileNum = 0;
+    int localWhileNum = whileNum;
+    whileNum++;
 
     PrintA ("; while");
     Tabs++;
 
-    PrintA ("%dwhile:", whileNum);
+    PrintA ("%dwhile:", localWhileNum);
     NodeToAsm (LEFT);
 
     PrintA ("push 0");
-    PrintA ("je :%dwhileEnd", whileNum);
+    PrintA ("je :%dwhileEnd", localWhileNum);
 
     if (RIGHT)
         NodeToAsm (RIGHT);
 
-    PrintA ("jmp :%dwhile", whileNum);
+    PrintA ("jmp :%dwhile", localWhileNum);
 
-    PrintA ("%dwhileEnd:", whileNum);
+    PrintA ("%dwhileEnd:", localWhileNum);
     Tabs--;
 
-    whileNum++;
     return 0;
 }
 
@@ -202,6 +212,7 @@ static int PrintSERV (TNode *node)
     $ IF_SERVICE (DEF);
     $ IF_SERVICE (RET);
     $ IF_SERVICE (OUT);
+    $ IF_SERVICE (IN);
     $ IF_SERVICE (CALL);
     $ IF_SERVICE (WHILE);
 
@@ -272,13 +283,12 @@ static int PrintRET (TNode *node)
     $ if (!RIGHT)
     {
         PrintA ("push 0");
-        SAVE();
-        return 0;
     }
-
-    int rErr = NodeToAsm (RIGHT);
-    if (rErr) return rErr;
-
+    else
+    {
+        int rErr = NodeToAsm (RIGHT);
+        if (rErr) return rErr;
+    }
     SAVE();
     PrintA ("ret");
 

@@ -24,18 +24,6 @@ int IsAlpha (char val)
     return 1;
 }
 
-int SyntaxErr (const char *msg, ...)
-{
-    printf ("SYNTAX ERROR: ");
-
-    va_list arg = {};
-    va_start (arg, msg);
-    vprintf (msg, arg);
-    va_end (arg);
-
-    return 0;
-}
-
 static void SkipSpaces (LexicAn *la)
 {
     while (isspace (*la->str))
