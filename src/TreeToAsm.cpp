@@ -16,12 +16,14 @@ static void PrintA (const char *msg, ...)
 
 static int MoveReg (const char *reg, int delta)
 {
+    $$ PrintA ("; moving ptr %s", reg);
     Tabs++;
-    $$ PrintA ("push %d ; moving ptr %s", delta, reg);
+    PrintA ("push %d", delta);
     PrintA ("push %s", reg);
     PrintA ("add");
     PrintA ("pop %s ; ptr %s moved", reg, reg);
     Tabs--;
+    PrintA ("; ptr %s moved", reg);
     return 0;
 }
 
@@ -29,7 +31,8 @@ static int PrintCallArgs (TNode *node)
 {
     if (!RIGHT || !CURR) return 0;
 
-    int newMemOffs = FreeOffset;
+    PrintA ("push %s ; save freeOffest to stack", FREE);
+
     do
     {
         NodeToAsm (RIGHT);
@@ -40,10 +43,7 @@ static int PrintCallArgs (TNode *node)
     }
     while (CURR);
 
-    int deltaMem = newMemOffs - MemOffset;
-    MoveReg (MEM, deltaMem);
-    MemOffset  = newMemOffs;
-    FreeOffset -= deltaMem;
+    PrintA ("pop %s ; pop freeOffest from stack", MEM);
 
     return 0;
 }
@@ -52,17 +52,16 @@ static int PrintCALL (TNode *node)
 {
     $ node = RIGHT;
 
-    int initMemOffs  = MemOffset;
-    int initFreeOffs = FreeOffset;
+    PrintA ("push %s ; save free", FREE);
+    PrintA ("push %s ; save mem", MEM);
+
     PrintCallArgs (RIGHT);
 
-    PrintA ("call :f%ld ; function %.*s",
+    PrintA ("call :f%ld ; call %.*s",
             abs (LEFT->data), LEFT->len, LEFT->declared);
 
-    MoveReg (FREE, initFreeOffs - FreeOffset);
-    FreeOffset = initFreeOffs;
-    MoveReg (MEM, initMemOffs - MemOffset);
-    MemOffset = initMemOffs;
+    PrintA ("pop %s", MEM);
+    PrintA ("pop %s", FREE);
 
     PrintA ("push %s", RES);
 
@@ -111,15 +110,43 @@ static int PrintIF (TNode *node)
 
     TNode *decis = RIGHT;
 
-    NodeToAsm (decis->left);
+    if (decis->left)
+        NodeToAsm (decis->left);
     PrintA ("jmp :%denif", ifNum);
 
     PrintA ("%dfalse:", ifNum);
-    NodeToAsm (decis->right);
-    Tabs--;
+    if (decis->right)
+        NodeToAsm (decis->right);
+
     PrintA ("%denif:", ifNum);
+    Tabs--;
 
     ifNum++;
+    return 0;
+}
+
+static int PrintWHILE (TNode *node)
+{
+    static int whileNum = 0;
+
+    PrintA ("; while");
+    Tabs++;
+
+    PrintA ("%dwhile:", whileNum);
+    NodeToAsm (LEFT);
+
+    PrintA ("push 0");
+    PrintA ("je :%dwhileEnd", whileNum);
+
+    if (RIGHT)
+        NodeToAsm (RIGHT);
+
+    PrintA ("jmp :%dwhile", whileNum);
+
+    PrintA ("%dwhileEnd:", whileNum);
+    Tabs--;
+
+    whileNum++;
     return 0;
 }
 
@@ -134,12 +161,12 @@ static int PrintAssn (TNode *node)
     {
         if (LEFT->right->data != 0)
         {
-            int offset = (int) LEFT->right->data + MEM_OFS (id_pos);
+            int offset = (int) LEFT->right->data + id_pos;
             PrintA ("pop [%s+%d] ; %.*s", MEM, offset, LEFT->len, LEFT->declared);
         }
         else
         {
-            PrintA ("pop [%s+%d] ; %.*s", MEM, MEM_OFS (id_pos), LEFT->len, LEFT->declared);
+            PrintA ("pop [%s+%d] ; %.*s", MEM, id_pos, LEFT->len, LEFT->declared);
         }
     }
     else
@@ -176,6 +203,7 @@ static int PrintSERV (TNode *node)
     $ IF_SERVICE (RET);
     $ IF_SERVICE (OUT);
     $ IF_SERVICE (CALL);
+    $ IF_SERVICE (WHILE);
 
     return 0;
 }
@@ -261,30 +289,33 @@ static int PrintDEF (TNode *node)
 {
     $ assert (CURR);
 
-    TNode *params = LEFT;
-    int   initIds = IDNUM;
+    TNode *params      = LEFT;
+    int   initFreeOffs = FreeOffset;
+
+    IdsArr = (Id *) calloc (INIT_IDS_NUM, sizeof (Id));
+    IdsNum = 0;
 
     long hash = abs(params->left->data);
-    $ PrintA ("f%ld:", hash);
+    LogMsg ("functon declared: %.*s\n", params->left->len, params->left->declared);
+    $ PrintA ("f%ld: ; def %.*s", hash, params->left->len, params->left->declared);
     Tabs++;
 
     for (TNode *curr_param = params->right;
-         curr_param && curr_param->left;
+         curr_param;
          curr_param = curr_param->left)
     {
         AddId (ASM_IDS, curr_param->right->data);
+        LogMsg ("param added: %.*s\n", curr_param->right->len, curr_param->right->declared);
     }
 
     PrintSt (RIGHT);
 
     Tabs--;
 
-    for (int curr_id = initIds; curr_id < IdsNum; curr_id++)
-    {
-        IDS[curr_id] = {};
-    }
-    if (hash == MAIN_HASH)
-        PrintA ("hlt");
+    FreeOffset = initFreeOffs;
+
+    free (IdsArr);
+    IdsNum = 0;
 
     return 0;
 }
@@ -310,18 +341,19 @@ static int PrintID (TNode *node)
 
 static int PrintVar (TNode *node)
 {
-    int id_pos = FindId (ASM_IDS, DATA, MemOffset);
+    LogMsg ("Looking for hash = %ld; name = %.*s\n", DATA, LEN, DECL);
+    int id_pos = FindId (ASM_IDS, DATA);
+    LogMsg ("Hash found on pos = %d\n", id_pos);
 
     if (id_pos >= 0)
     {
-        printf ("right = %p; decl = %.*s\n", RIGHT, LEN, DECL);
         if (!RIGHT || RIGHT->data == 0)
         {
-            PrintA ("push [%s+%ld] ; %.*s", MEM, MEM_OFS (id_pos), LEN, DECL);
+            PrintA ("push [%s+%ld] ; %.*s", MEM, id_pos, LEN, DECL);
         }
         else
         {
-            int offset = MEM_OFS (id_pos) + (int) RIGHT->data;
+            int offset = id_pos + (int) RIGHT->data;
             PrintA ("push [%s+%ld] ; %.*s", MEM, offset, LEN, DECL);
         }
     }
@@ -385,21 +417,17 @@ int Translate (TNode *root, const char *name)
         return OPEN_FILE_FAILED;
     }
 
-    IdsArr = (Id *) calloc (INIT_IDS_NUM, sizeof (Id));
-    IdsNum = 0;
-
     PrintA ("push 0");
     PrintA ("pop %s ; available memory offset", MEM);
     PrintA ("push 0");
     PrintA ("pop %s ; free memory offset", FREE);
     PrintA ("push 0");
     PrintA ("pop %s ; call result\n", RES);
-    PrintA ("call :f1058 ; main\n");
+    PrintA ("call :f1058 ; main");
+    PrintA ("hlt\n");
 
     int err = NodeToAsm (root);
     if (err) printf ("Node to asm: errors occured: %d", err);
-
-    free (IdsArr);
 
     return err;
 }

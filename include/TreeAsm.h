@@ -17,16 +17,14 @@ static int  PrintOP     (TNode *node);
 static int  PrintRET    (TNode *node);
 static void PrintA      (const char *msg, ...);
 
-const char *RES  = "rx"; /* a register for calculations result
+const char *RES    = "rx"; /* a register for calculations result
                            i.e. function's return value        */
 
-const char *FREE = "fx"; /* a register that holds free space
+const char *FREE   = "fx"; /* a register that holds free space
                             begin position                   */
 
-const char *MEM  = "mx"; /* a register that holds current
+const char *MEM    = "mx"; /* a register that holds current
                             function memory begin position */
-
-const char *OFFS = "ox"; /* a register for calculating offset */
 
 #define CURR    node
 #define LEFT    node->left

@@ -416,7 +416,9 @@ TNode *GetFunc (Trans *trans)
         name->len       = 4;
         val->left       = CreateNodeWithStr ("function", TYPE_SERVICE);
         val->left->left = name;
-        TNode *body     = GetSt (trans, "А");
+        TNode *ret      = CreateNodeWithStr ("return", TYPE_SERVICE);
+        ret->right      = CreateNode (0, TYPE_CONST);
+        TNode *body     = ST (GetSt (trans, "А"), ret);
         val->right      = body;
         Require (MAIN_END);
         return val;
