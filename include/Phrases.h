@@ -4,7 +4,9 @@ PHRASE (1,  DEFRET,     "Козырная",               -9895)
 PHRASE (1,  ASSNSTART,  "Этим",                   -2411)
 PHRASE (1,  ASSNIS,     "был",                    -1469)
 PHRASE (1,  KAVYCHKA,   "\"",                      34)
+PHRASE (1,  MUL_PH,     "дофига",                 -5189)
 PHRASE (2,  IDX,        "( автору",               -6199)
+PHRASE (2,  OUT_PH,     "Голос ,",                -3841)
 PHRASE (2,  IDXEND,     "лет )",                  -1580)
 PHRASE (2,  NEG,        "Нифига не",              -5885)
 PHRASE (2,  DEFNAME,    "называется .",           -15876)
@@ -16,12 +18,13 @@ PHRASE (3,  WHILESTART, "В дверь постучали",      -16792)
 PHRASE (3,  WHILEEND,   "Дверь отвалилась .",     -19211)
 PHRASE (3,  RETEND,     ", господа .",            -6649)
 PHRASE (4,  DEFPARAM,   "Правила очень просты :", -17135)
-PHRASE (4,  INIT,       "Купил мужик шляпу .",    -11213)
 PHRASE (4,  DECLEND,    "\" - подумал Штирлиц",   -14449)
+PHRASE (4,  PROG_END,   "Развернулся и алга .",   -21260)
+PHRASE (5,  MAIN_INIT,  "Купил мужик шляпу "
+                        "называется .",           -27135)
 PHRASE (5,  ANEKNAME,   "А бармен им говорит :",  -13541)
-PHRASE (5,  TOCONST,    "У Штирлица "
-                        "отвалилась жопа .",      -27036)
-PHRASE (6,  END,        "А она ему как раз .",    -5894)
+PHRASE (8,  MAIN_END,   "А она ему как раз , "
+                        "господа .",              -12589)
 PHRASE (8,  IFEND,      "и можешь считать , "
                         "что не читал .",         -20283)
 PHRASE (8,  ANEK,       "Анекдот : Заходят "

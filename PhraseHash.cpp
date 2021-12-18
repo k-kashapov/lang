@@ -23,7 +23,7 @@ int main (const int argc, const char **argv)
         hash += string[ch] * bytes_read++;
     }
 
-    printf ("words = %d\nhash = %ld\n", words, hash);
+    printf ("PHRASE (%d, , \"%s\", %ld)\n", words, string, hash);
 
     return 0;
 }

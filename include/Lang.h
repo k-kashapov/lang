@@ -11,6 +11,7 @@ const int INIT_IDS_NUM = 10;
 
 const char NotAlpha[] = "0123456789:-+!?*/ \"\n\t\r(){}[]^\\,.=<>\'";
 const int  AlphaNum   = sizeof (NotAlpha) / sizeof (char);
+const int  MAIN_HASH  = 1058;
 
 struct Id
 {
@@ -61,7 +62,8 @@ const int64_t ServiceNodes[] =
     SERVICE_HASH ("if"),
     SERVICE_HASH ("decision"),
     SERVICE_HASH ("while"),
-    SERVICE_HASH ("return")
+    SERVICE_HASH ("return"),
+    SERVICE_HASH ("out")
 };
 #undef SERVICE_HASH
 
@@ -75,6 +77,7 @@ enum ServiceHash
     DECISION,
     WHILE,
     RET,
+    OUT,
 };
 
 #define TRANS_IDS &trans->IdsArr, &trans->IdsNum
@@ -94,6 +97,7 @@ enum COND_EXP
     OR  = 3 * '|',
     AND = 3 * '&',
 };
+
 
 TNode *BuildTreeFromBase (Config *io_config, char **buffer);
 

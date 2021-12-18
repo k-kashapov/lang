@@ -4,19 +4,78 @@ static void PrintA (const char *msg, ...)
 {
     for (int tab = 0; tab < Tabs; tab++)
     {
-        fputc ('\t', AsmFile);
+        fprintf (AsmFile, "\t");
     }
 
     va_list arg;
     va_start (arg, msg);
     vfprintf (AsmFile, msg, arg);
     va_end (arg);
+    fprintf (AsmFile, "\n");
+}
+
+static int PrintCALL (TNode *node)
+{
+    node = RIGHT;
+
+    PrintA ("call :f%ld ; function %.*s",
+            abs (LEFT->data), LEFT->len, LEFT->declared);
+    PrintA ("push %s", RES);
+
+    return 0;
+}
+
+static int PrintNeg (TNode *node)
+{
+    static int negsNum = 0;
+    PrintA ("; !");
+
+    Tabs++;
+    PrintA ("push 0");
+    NodeToAsm (RIGHT);
+    PrintA ("je :%dis0", negsNum);
+    PrintA ("push 0");
+    PrintA ("jmp :%dnegEnd", negsNum);
+    PrintA ("%dis0:", negsNum);
+    PrintA ("push 1");
+    PrintA ("%dnegEnd:", negsNum);
+    Tabs--;
+
+    negsNum++;
+    return 0;
+}
+
+static int PrintOUT (TNode *node)
+{
+    if (!node) return 1;
+    NodeToAsm (RIGHT);
+    PrintA ("out ; %.*s", RIGHT->len, RIGHT->declared);
+    PrintA ("pop tx ; to trash");
+    return 0;
 }
 
 static int PrintIF (TNode *node)
 {
+    static int ifNum = 0;
 
+    PrintA ("; if statement");
+    Tabs++;
+    NodeToAsm (LEFT);
 
+    PrintA ("push 0");
+    PrintA ("je :%dfalse", ifNum);
+
+    TNode *decis = RIGHT;
+
+    NodeToAsm (decis->left);
+    PrintA ("jmp :%denif", ifNum);
+
+    PrintA ("%dfalse:", ifNum);
+    NodeToAsm (decis->right);
+    Tabs--;
+    PrintA ("%denif:", ifNum);
+
+    ifNum++;
     return 0;
 }
 
@@ -25,20 +84,29 @@ static int PrintAssn (TNode *node)
     int rErr = NodeToAsm (RIGHT);
     if (rErr) return rErr;
 
-    PrintA ("push %s\n", RES);
-
     int id_pos = FindId (ASM_IDS, LEFT->data);
 
     if (id_pos >= 0)
     {
-        PrintA ("pop [%s+%ld]\n", FREE, id_pos);
+        if (LEFT->right->data != 0)
+        {
+            PrintA ("push %d ; %.*s", id_pos, LEFT->len, LEFT->declared);
+            PrintA ("push %d ; offset", LEFT->right->data);
+            PrintA ("add");
+            PrintA ("pop ox");
+            PrintA ("pop [ox] ; %.*s", LEFT->len, LEFT->declared);
+        }
+        else
+        {
+            PrintA ("pop [%d] ; %.*s", id_pos, LEFT->len, LEFT->declared);
+        }
     }
     else
     {
-        LogMsg ("var declared = %.*s; len = %d\n", LEFT->len, LEFT->declared, LEFT->len);
+        LogMsg ("var declared = %.*s; len = %d", LEFT->len, LEFT->declared, LEFT->len);
         PrintA
         (
-            "pop [%s+%d] ; %.*s\n", // save value to FREE + OFFSET
+            "pop [%s+%d] ; %.*s", // save value to FREE + OFFSET
             FREE, FreeOffset, LEFT->len, LEFT->declared
         );
 
@@ -49,13 +117,61 @@ static int PrintAssn (TNode *node)
     return 0;
 }
 
+#define IF_SERVICE(serv) if (DATA == ServiceNodes[serv]) return Print##serv (CURR);
+static int PrintSERV (TNode *node)
+{
+    IF_SERVICE (IF);
+    IF_SERVICE (DEF);
+    IF_SERVICE (RET);
+    IF_SERVICE (OUT);
+    IF_SERVICE (CALL);
+
+    return 0;
+}
+#undef IF_SERVICE
+
+#define OP_CASE(op, act)                                                        \
+    case op:                                                                    \
+        NodeToAsm (LEFT);                                                       \
+        NodeToAsm (RIGHT);                                                      \
+        PrintA (act "");                                                        \
+        return 0
+
+#define COMP_CASE(val, action)                                                  \
+    case val:                                                                   \
+        PrintA ("; " action);                                                   \
+        Tabs++;                                                                 \
+        NodeToAsm (LEFT);                                                       \
+        NodeToAsm (RIGHT);                                                      \
+        PrintA (action " :%dcmp", cmpNum);                                      \
+        PrintA ("push 0");                                                      \
+        PrintA ("jmp :%dcmpEnd", cmpNum);                                       \
+        PrintA ("%dcmp:", cmpNum);                                              \
+        PrintA ("push 1");                                                      \
+        PrintA ("%dcmpEnd:", cmpNum);                                           \
+        Tabs--;                                                                 \
+        cmpNum++;                                                               \
+        break
+
 static int PrintOP (TNode *node)
 {
+    static int cmpNum = 0;
     switch (node->data)
     {
         case '=':
             return PrintAssn (CURR);
             break;
+        case '!':
+            return PrintNeg (CURR);
+            break;
+        COMP_CASE (EE, "je");
+        COMP_CASE (AE, "jae");
+        COMP_CASE (BE, "jbe");
+        COMP_CASE (NE, "jn");
+        OP_CASE ('+', "add");
+        OP_CASE ('-', "sub");
+        OP_CASE ('*', "mul");
+        OP_CASE ('/', "div");
         default:
             break;
     }
@@ -63,20 +179,21 @@ static int PrintOP (TNode *node)
     return 0;
 }
 
+#undef OP_CASE
+#undef COMP_CASE
+
 static int PrintConst (TNode *node)
 {
-    PrintA ("push %d ; const value\n", DATA);
-    SAVE();
+    PrintA ("push %d ; const value", DATA);
 
     return 0;
 }
 
-static int PrintRet (TNode *node)
+static int PrintRET (TNode *node)
 {
     if (!RIGHT)
     {
         PrintA ("push 0");
-        PrintA ("pop %s\n", RES);
         SAVE();
         return 0;
     }
@@ -84,24 +201,25 @@ static int PrintRet (TNode *node)
     int rErr = NodeToAsm (RIGHT);
     if (rErr) return rErr;
 
-    PrintA ("pop %s\n", RES);
     SAVE();
+    PrintA ("ret");
 
     return 0;
 }
 
-static int PrintDefine (TNode *node)
+static int PrintDEF (TNode *node)
 {
     $ assert (CURR);
 
     TNode *params = LEFT;
     int   initIds = IDNUM;
 
-    $ PrintA ("f%ld:\n", abs(params->left->data));
+    long hash = abs(params->left->data);
+    $ PrintA ("f%ld:", hash);
     Tabs++;
 
     for (TNode *curr_param = params->right;
-         curr_param->left;
+         curr_param && curr_param->left;
          curr_param = curr_param->left)
     {
         AddId (ASM_IDS, curr_param->right->data);
@@ -115,22 +233,15 @@ static int PrintDefine (TNode *node)
     {
         IDS[curr_id] = {};
     }
+    if (hash == MAIN_HASH)
+        PrintA ("hlt");
 
     return 0;
 }
 
 static int PrintID (TNode *node)
 {
-    if (HASH_EQ (CURR, DEF))
-    {
-        $ return PrintDefine (CURR);
-    }
-    else if (HASH_EQ (CURR, RET))
-    {
-        $ return PrintRet (CURR);
-    }
-
-    PrintA ("; %.*s\n", LEN, DECL);
+    PrintA ("; %.*s", LEN, DECL);
 
     if (LEFT)
     {
@@ -153,8 +264,14 @@ static int PrintVar (TNode *node)
 
     if (id_pos >= 0)
     {
-        PrintA ("push [%ld] ; %.*s\n", id_pos, LEN, DECL);
-        SAVE();
+        PrintA ("push [%ld] ; %.*s", id_pos, LEN, DECL);
+        if (RIGHT->data != 0)
+        {
+            PrintA ("push %d ; offset", RIGHT->data);
+            PrintA ("add");
+            PrintA ("pop ox");
+            PrintA ("push [ox]");
+        }
     }
     else
     {
@@ -175,7 +292,8 @@ static int PrintSt (TNode *node)
 
     $ int rErr = NodeToAsm (RIGHT);
 
-    PrintA ("\n");
+    PrintA ("");
+
     return rErr;
 }
 
@@ -195,18 +313,13 @@ static int NodeToAsm (TNode *node)
             $ return PrintConst (CURR);
         case TYPE_OP:
             $ return PrintOP (CURR);
+        case TYPE_SERVICE:
+            $ return PrintSERV (CURR);
         default:
             break;
     }
 
-    if (DATA == '=')
-    {
-        $ return PrintAssn (CURR);
-    }
-    else
-    {
-        PrintA ("; node (%.*s) of type %d\n", LEN, DECL, node->type);
-    }
+    PrintA ("; node (%.*s) of type %d", LEN, DECL, node->type);
 
     return OK;
 }
@@ -223,7 +336,9 @@ int Translate (TNode *root, const char *name)
     IdsArr = (Id *) calloc (INIT_IDS_NUM, sizeof (Id));
     IdsNum = 0;
 
+    PrintA ("call :f1058 ; main\n");
     int err = NodeToAsm (root);
+    if (err) printf ("Node to asm: errors occured: %d", err);
 
     free (IdsArr);
 
