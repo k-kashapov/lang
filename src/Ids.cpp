@@ -5,12 +5,13 @@
 
 static int idCap = INIT_IDS_NUM;
 
-int AddId (Id **IdsArr, int *IdsNum, int64_t hash, char isConst, int len)
+int AddId (Id **IdsArr, int *IdsNum, int64_t hash, char isConst, int len, int memOfs)
 {
     Id new_id      = {};
     new_id.hash    = hash;
     new_id.isConst = isConst;
     new_id.len     = len;
+    new_id.memOfs  = memOfs;
 
     $ LogMsg ("\tnew hash = %ld\n", hash);
 
@@ -28,14 +29,17 @@ int AddId (Id **IdsArr, int *IdsNum, int64_t hash, char isConst, int len)
     return NUM;
 }
 
-int FindId (Id **IdsArr, int *IdsNum, int64_t hash)
+int FindId (Id **IdsArr, int *IdsNum, int64_t hash, int reqOfs)
 {
     for (int id = 0; id < NUM; id++)
     {
-        if (IDS[id].hash == hash)
+        // printf ("id hash = %d; req = %d; memOfs = %d; reqOfs = %d;\n", IDS[id].hash, hash, IDS[id].memOfs, reqOfs);
+        if (IDS[id].hash == hash && IDS[id].memOfs >= reqOfs)
         {
+            // printf ("FOUND\n");
             return id;
         }
+        // printf ("DIO\n");
     }
 
     return -1;

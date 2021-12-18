@@ -18,6 +18,7 @@ struct Id
     int64_t hash;
     char    isConst;
     int     len;
+    int     memOfs;
 };
 
 struct FuncId
@@ -41,6 +42,7 @@ enum LANG_EXIT_CODES
     REQUIRE_FAIL  = 0x01,
     REDECLARATION = 0x02,
     UNDECLARED    = 0x03,
+    ZERO_CAP_DECL = 0x04,
 };
 
 int64_t SimpleHash (const void *data, int len);
@@ -163,9 +165,9 @@ int Translate (TNode *root, const char *name);
 
 void FreeTransTree (TNode *root, TNode **nodes, int nodesNum);
 
-int AddId (Id **IdsArr, int *IdsNum, int64_t hash, char isConst = 0, int len = 1);
+int AddId (Id **IdsArr, int *IdsNum, int64_t hash, char isConst = 0, int len = 1, int memOfs = 0);
 
-int FindId (Id **IdsArr, int *IdsNum, int64_t hash);
+int FindId (Id **IdsArr, int *IdsNum, int64_t hash, int reqOfs = -1);
 
 int RmId (Id **IdsArr, int *IdsNum, int num = 1);
 

@@ -467,25 +467,14 @@ TNode *GetCall (Trans *trans)
 
     curr->right       = CreateNodeWithStr ("parameter", TYPE_SERVICE);
     curr              = curr->right;
-    curr->right       = GetTok (trans);
-    curr->right->type = TYPE_VAR;
-    MovePtr (trans);
+    curr->right       = GetID (trans);
 
     while (!CheckTok (trans, "."))
     {
-        curr->left        = CreateNodeWithStr ("parameter", TYPE_SERVICE);
-        curr              = curr->left;
-        TNode *var        = GetTok (trans);
-        if (FindId (TRANS_IDS, var->data) < 0)
-        {
-            SyntaxErr ("Call: Using an undeclared variable: %.*s\n",
-                       var->len, var->declared);
-            return NULL;
-        }
-        var->type   = TYPE_VAR;
+        curr->left  = CreateNodeWithStr ("parameter", TYPE_SERVICE);
+        curr        = curr->left;
+        TNode *var  = GetID (trans);
         curr->right = var;
-
-        MovePtr (trans);
     }
 
     MovePtr (trans);

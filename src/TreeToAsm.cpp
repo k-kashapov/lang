@@ -2,7 +2,7 @@
 
 static void PrintA (const char *msg, ...)
 {
-    for (int tab = 0; tab < Tabs; tab++)
+    $$ for (int tab = 0; tab < Tabs; tab++)
     {
         fprintf (AsmFile, "\t");
     }
@@ -14,12 +14,56 @@ static void PrintA (const char *msg, ...)
     fprintf (AsmFile, "\n");
 }
 
+static int MoveReg (const char *reg, int delta)
+{
+    Tabs++;
+    $$ PrintA ("push %d ; moving ptr %s", delta, reg);
+    PrintA ("push %s", reg);
+    PrintA ("add");
+    PrintA ("pop %s ; ptr %s moved", reg, reg);
+    Tabs--;
+    return 0;
+}
+
+static int PrintCallArgs (TNode *node)
+{
+    if (!RIGHT || !CURR) return 0;
+
+    int newMemOffs = FreeOffset;
+    do
+    {
+        NodeToAsm (RIGHT);
+        PrintA ("pop [%s]", FREE);
+        MoveReg (FREE, 1);
+        FreeOffset++;
+        CURR = LEFT;
+    }
+    while (CURR);
+
+    int deltaMem = newMemOffs - MemOffset;
+    MoveReg (MEM, deltaMem);
+    MemOffset  = newMemOffs;
+    FreeOffset -= deltaMem;
+
+    return 0;
+}
+
 static int PrintCALL (TNode *node)
 {
-    node = RIGHT;
+    $ node = RIGHT;
+
+    int initMemOffs  = MemOffset;
+    int initFreeOffs = FreeOffset;
+    PrintCallArgs (RIGHT);
 
     PrintA ("call :f%ld ; function %.*s",
             abs (LEFT->data), LEFT->len, LEFT->declared);
+
+    MoveReg (FREE, initFreeOffs - FreeOffset);
+    FreeOffset = initFreeOffs;
+    MoveReg (MEM, initMemOffs - MemOffset);
+    MemOffset = initMemOffs;
+
     PrintA ("push %s", RES);
 
     return 0;
@@ -27,7 +71,7 @@ static int PrintCALL (TNode *node)
 
 static int PrintNeg (TNode *node)
 {
-    static int negsNum = 0;
+    $ static int negsNum = 0;
     PrintA ("; !");
 
     Tabs++;
@@ -47,7 +91,7 @@ static int PrintNeg (TNode *node)
 
 static int PrintOUT (TNode *node)
 {
-    if (!node) return 1;
+    $ if (!node) return 1;
     NodeToAsm (RIGHT);
     PrintA ("out ; %.*s", RIGHT->len, RIGHT->declared);
     PrintA ("pop tx ; to trash");
@@ -56,7 +100,7 @@ static int PrintOUT (TNode *node)
 
 static int PrintIF (TNode *node)
 {
-    static int ifNum = 0;
+    $ static int ifNum = 0;
 
     PrintA ("; if statement");
     Tabs++;
@@ -81,24 +125,21 @@ static int PrintIF (TNode *node)
 
 static int PrintAssn (TNode *node)
 {
-    int rErr = NodeToAsm (RIGHT);
+    $ int rErr = NodeToAsm (RIGHT);
     if (rErr) return rErr;
 
-    int id_pos = FindId (ASM_IDS, LEFT->data);
+    int id_pos = FindId (ASM_IDS, LEFT->data, MemOffset);
 
     if (id_pos >= 0)
     {
         if (LEFT->right->data != 0)
         {
-            PrintA ("push %d ; %.*s", id_pos, LEFT->len, LEFT->declared);
-            PrintA ("push %d ; offset", LEFT->right->data);
-            PrintA ("add");
-            PrintA ("pop ox");
-            PrintA ("pop [ox] ; %.*s", LEFT->len, LEFT->declared);
+            int offset = (int) LEFT->right->data + MEM_OFS (id_pos);
+            PrintA ("pop [%s+%d] ; %.*s", MEM, offset, LEFT->len, LEFT->declared);
         }
         else
         {
-            PrintA ("pop [%d] ; %.*s", id_pos, LEFT->len, LEFT->declared);
+            PrintA ("pop [%s+%d] ; %.*s", MEM, MEM_OFS (id_pos), LEFT->len, LEFT->declared);
         }
     }
     else
@@ -106,12 +147,22 @@ static int PrintAssn (TNode *node)
         LogMsg ("var declared = %.*s; len = %d", LEFT->len, LEFT->declared, LEFT->len);
         PrintA
         (
-            "pop [%s+%d] ; %.*s", // save value to FREE + OFFSET
+            "pop [%s+%d] ; declared %.*s", // save value to FREE + OFFSET
             FREE, FreeOffset, LEFT->len, LEFT->declared
         );
+        char isConst = 0;
+        if (LEFT->left) isConst = 1;
 
-        AddId (ASM_IDS, LEFT->data);
-        FreeOffset++;
+        int len = (int) LEFT->right->data;
+        if (len < 1)
+        {
+            SyntaxErr ("Attempting to allocate array of size %d < 1, %s\n", len, LEFT->declared);
+            return ZERO_CAP_DECL;
+        }
+
+        AddId (ASM_IDS, LEFT->data, isConst, len, FreeOffset);
+        FreeOffset += len;
+        MoveReg (FREE, len);
     }
 
     return 0;
@@ -120,11 +171,11 @@ static int PrintAssn (TNode *node)
 #define IF_SERVICE(serv) if (DATA == ServiceNodes[serv]) return Print##serv (CURR);
 static int PrintSERV (TNode *node)
 {
-    IF_SERVICE (IF);
-    IF_SERVICE (DEF);
-    IF_SERVICE (RET);
-    IF_SERVICE (OUT);
-    IF_SERVICE (CALL);
+    $ IF_SERVICE (IF);
+    $ IF_SERVICE (DEF);
+    $ IF_SERVICE (RET);
+    $ IF_SERVICE (OUT);
+    $ IF_SERVICE (CALL);
 
     return 0;
 }
@@ -139,7 +190,7 @@ static int PrintSERV (TNode *node)
 
 #define COMP_CASE(val, action)                                                  \
     case val:                                                                   \
-        PrintA ("; " action);                                                   \
+        PrintA ("; " action);                                                 \
         Tabs++;                                                                 \
         NodeToAsm (LEFT);                                                       \
         NodeToAsm (RIGHT);                                                      \
@@ -155,7 +206,7 @@ static int PrintSERV (TNode *node)
 
 static int PrintOP (TNode *node)
 {
-    static int cmpNum = 0;
+    $ static int cmpNum = 0;
     switch (node->data)
     {
         case '=':
@@ -178,7 +229,6 @@ static int PrintOP (TNode *node)
 
     return 0;
 }
-
 #undef OP_CASE
 #undef COMP_CASE
 
@@ -191,7 +241,7 @@ static int PrintConst (TNode *node)
 
 static int PrintRET (TNode *node)
 {
-    if (!RIGHT)
+    $ if (!RIGHT)
     {
         PrintA ("push 0");
         SAVE();
@@ -260,17 +310,19 @@ static int PrintID (TNode *node)
 
 static int PrintVar (TNode *node)
 {
-    int id_pos = FindId (ASM_IDS, DATA);
+    int id_pos = FindId (ASM_IDS, DATA, MemOffset);
 
     if (id_pos >= 0)
     {
-        PrintA ("push [%ld] ; %.*s", id_pos, LEN, DECL);
-        if (RIGHT->data != 0)
+        printf ("right = %p; decl = %.*s\n", RIGHT, LEN, DECL);
+        if (!RIGHT || RIGHT->data == 0)
         {
-            PrintA ("push %d ; offset", RIGHT->data);
-            PrintA ("add");
-            PrintA ("pop ox");
-            PrintA ("push [ox]");
+            PrintA ("push [%s+%ld] ; %.*s", MEM, MEM_OFS (id_pos), LEN, DECL);
+        }
+        else
+        {
+            int offset = MEM_OFS (id_pos) + (int) RIGHT->data;
+            PrintA ("push [%s+%ld] ; %.*s", MEM, offset, LEN, DECL);
         }
     }
     else
@@ -336,7 +388,14 @@ int Translate (TNode *root, const char *name)
     IdsArr = (Id *) calloc (INIT_IDS_NUM, sizeof (Id));
     IdsNum = 0;
 
+    PrintA ("push 0");
+    PrintA ("pop %s ; available memory offset", MEM);
+    PrintA ("push 0");
+    PrintA ("pop %s ; free memory offset", FREE);
+    PrintA ("push 0");
+    PrintA ("pop %s ; call result\n", RES);
     PrintA ("call :f1058 ; main\n");
+
     int err = NodeToAsm (root);
     if (err) printf ("Node to asm: errors occured: %d", err);
 
