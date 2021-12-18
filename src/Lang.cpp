@@ -114,6 +114,7 @@ TNode *GetID (Trans *trans)
         if (root->data == UnaryFuncs[func_id])
         {
             TNode *action = GetTok (trans);
+            action->type  = TYPE_UNARY;
             MovePtr (trans);
             action->right = GetP (trans);
             return action;

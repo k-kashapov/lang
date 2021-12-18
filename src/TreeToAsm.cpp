@@ -391,6 +391,22 @@ static int PrintSt (TNode *node)
     return rErr;
 }
 
+static int PrintUNARY (TNode *node)
+{
+    if (!RIGHT) return 1;
+    NodeToAsm (RIGHT);
+    for (size_t func = 0; func < sizeof (UnaryFuncs) / sizeof (*UnaryFuncs); func++)
+    {
+        if (DATA == UnaryFuncs[func])
+        {
+            PrintA ("%.*s", LEN, DECL);
+            return 0;
+        }
+    }
+
+    return 1;
+}
+
 static int NodeToAsm (TNode *node)
 {
     $ assert (CURR);
@@ -409,6 +425,8 @@ static int NodeToAsm (TNode *node)
             $ return PrintOP (CURR);
         case TYPE_SERVICE:
             $ return PrintSERV (CURR);
+        case TYPE_UNARY:
+            $ return PrintUNARY (CURR);
         default:
             break;
     }
