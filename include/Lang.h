@@ -53,6 +53,7 @@ const int64_t UnaryFuncs[] =
     SimpleHash ("cos",  3),
     SimpleHash ("sqrt", 4)
 };
+const int UnaryNum = sizeof (UnaryFuncs) / sizeof (int64_t);
 
 #define SERVICE_HASH(val) SimpleHash (val, strlen (val))
 const int64_t ServiceNodes[] =
@@ -65,10 +66,13 @@ const int64_t ServiceNodes[] =
     SERVICE_HASH ("decision"),
     SERVICE_HASH ("while"),
     SERVICE_HASH ("return"),
-    SERVICE_HASH ("out"),
-    SERVICE_HASH ("in")
+    SERVICE_HASH ("print"),
+    SERVICE_HASH ("scan"),
+    SERVICE_HASH ("statement")
 };
 #undef SERVICE_HASH
+
+const int SRVC_NUM = sizeof (ServiceNodes) / sizeof (ServiceNodes[0]);
 
 enum ServiceHash
 {
@@ -82,6 +86,7 @@ enum ServiceHash
     RET,
     OUT,
     IN,
+    STMT,
 };
 
 #define TRANS_IDS &trans->IdsArr, &trans->IdsNum
@@ -90,7 +95,6 @@ enum ServiceHash
 #define ST(l, r)                CreateNode (0, TYPE_STATEMENT, NULL, l, r)
 #define IDEXISTS(target)        (FindId (TRANS_IDS, target) >= 0)
 
-const int UnaryNum = sizeof (UnaryFuncs) / sizeof (int64_t);
 
 enum COND_EXP
 {
@@ -172,5 +176,7 @@ int AddId (Id **IdsArr, int *IdsNum, int64_t hash, char isConst = 0, int len = 1
 int FindId (Id **IdsArr, int *IdsNum, int64_t hash, int reqOfs = -1);
 
 int RmId (Id **IdsArr, int *IdsNum, int num = 1);
+
+int Reverse (TNode *root, const char *name = "reverse.anek");
 
 #endif

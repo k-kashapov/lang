@@ -143,6 +143,7 @@ TNode *GetID (Trans *trans)
     SyntaxErr ("Get ID: Using an undeclared variable: %.*s\n",
                root->len,
                root->declared);
+    MovePtr (trans);
     return root;
 }
 
@@ -178,7 +179,7 @@ TNode *GetP (Trans *trans)
     else if (CheckTok (trans, "ввод"))
     {
         Require (IN_PH);
-        return CreateNodeWithStr ("in", TYPE_SERVICE);
+        return CreateNodeWithStr ("scan", TYPE_SERVICE);
     }
     else if (GetTok (trans)->type == TYPE_ID)
     {
@@ -395,29 +396,32 @@ TNode *GetE (Trans *trans)
 static TNode *GetFuncParams (Trans *trans)
 {
     TNode *root = CreateNodeWithStr ("function", TYPE_SERVICE);
-    Require (DEFNAME);
-    Require (DEFPARAM);
-    TNode *curr       = root;
-    curr->right       = CreateNodeWithStr ("parameter", TYPE_SERVICE);
-    curr              = curr->right;
-    curr->right       = GetTok (trans);
-    curr->right->type = TYPE_VAR;
-    MovePtr (trans);
 
-    $ AddId (TRANS_IDS, curr->right->data);
-
-    while (!CheckTok (trans, "."))
+    if (CheckTok (trans, "Правила"))
     {
-        curr->left        = CreateNodeWithStr ("parameter", TYPE_SERVICE);
-        curr              = curr->left;
+        Require (DEFPARAM);
+        TNode *curr       = root;
+        curr->right       = CreateNodeWithStr ("parameter", TYPE_SERVICE);
+        curr              = curr->right;
         curr->right       = GetTok (trans);
         curr->right->type = TYPE_VAR;
+        MovePtr (trans);
 
         $ AddId (TRANS_IDS, curr->right->data);
 
+        while (!CheckTok (trans, "."))
+        {
+            curr->left        = CreateNodeWithStr ("parameter", TYPE_SERVICE);
+            curr              = curr->left;
+            curr->right       = GetTok (trans);
+            curr->right->type = TYPE_VAR;
+
+            $ AddId (TRANS_IDS, curr->right->data);
+
+            MovePtr (trans);
+        }
         MovePtr (trans);
     }
-    MovePtr (trans);
 
     return root;
 }
@@ -432,36 +436,20 @@ TNode *GetFunc (Trans *trans)
     LOCAL_IDS
     (
     TNode *name = NULL;
-    if (CheckTok (trans, "Купил"))
+    name = GetTok (trans);
+    MovePtr (trans);
+
+    Require (DEFNAME);
+
+    if (name->type != TYPE_ID)
     {
-        Require (MAIN_INIT);
-        TNode *body     = ST (GetSt (trans, "А"), NULL);
-        Require (MAIN_END);
-        name            = CreateNode (MAIN_HASH, TYPE_SERVICE, "main");
-        name->len       = 4;
-        root->left       = CreateNodeWithStr ("function", TYPE_SERVICE);
-        root->left->left = name;
-        TNode *ret      = CreateNodeWithStr ("return", TYPE_SERVICE);
-        ret->right      = CreateNode (0, TYPE_CONST);
-        body->right     = ret;
-        root->right      = body;
+        SyntaxErr ("Invalid function type: %d at %.*s\n",
+                   name->type, name->len, name->declared);
         return root;
     }
-    else
-    {
-        name = GetTok (trans);
-        MovePtr (trans);
 
-        if (name->type != TYPE_ID)
-        {
-            SyntaxErr ("Invalid function type: %d at %.*s\n",
-                       name->type, name->len, name->declared);
-            return root;
-        }
-
-        root->left       = GetFuncParams (trans);
-        root->left->left = name;
-    }
+    root->left       = GetFuncParams (trans);
+    root->left->left = name;
 
     TNode *body    = GetSt (trans, "Козырная");
     TNode *ret_val = NULL;
@@ -486,8 +474,7 @@ TNode *GetCall (Trans *trans)
 {
     TNode *root  = CreateNodeWithStr ("call", TYPE_SERVICE);
     $ Require (ANEK);
-    root->right  = CreateNodeWithStr ("function", TYPE_SERVICE);
-    TNode *curr = root->right;
+    TNode *curr = root;
 
     curr->right       = CreateNodeWithStr ("parameter", TYPE_SERVICE);
     curr              = curr->right;
@@ -504,8 +491,8 @@ TNode *GetCall (Trans *trans)
     MovePtr (trans);
 
     Require (ANEKNAME);
-    root->right->left = GetTok (trans);
-    if (root->right->left->type != TYPE_ID)
+    root->left = GetTok (trans);
+    if (root->left->type != TYPE_ID)
     {
         SyntaxErr ("Invalid type: expected id; got %d\n", curr->right->type);
         DestructNode (root);
@@ -593,7 +580,7 @@ TNode *GetOP (Trans *trans)
 
     if (CheckTok (trans, "Голос"))
     {
-        TNode *root = CreateNodeWithStr ("out", TYPE_SERVICE);
+        TNode *root = CreateNodeWithStr ("print", TYPE_SERVICE);
         Require (OUT_PH);
         root->right = GetID (trans);
         MovePtr (trans);

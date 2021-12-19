@@ -50,9 +50,7 @@ static int PrintCallArgs (TNode *node)
 
 static int PrintCALL (TNode *node)
 {
-    $ node = RIGHT;
-
-    PrintA ("push %s ; save free", FREE);
+    $ PrintA ("push %s ; save free", FREE);
     PrintA ("push %s ; save mem", MEM);
 
     PrintCallArgs (RIGHT);
@@ -65,6 +63,74 @@ static int PrintCALL (TNode *node)
 
     PrintA ("push %s", RES);
 
+    return 0;
+}
+
+static int PrintRET (TNode *node)
+{
+    $ if (!RIGHT)
+    {
+        PrintA ("push 0");
+    }
+    else
+    {
+        int rErr = NodeToAsm (RIGHT);
+        if (rErr) return rErr;
+    }
+    SAVE();
+    PrintA ("ret");
+
+    return 0;
+}
+
+static int PrintDEF (TNode *node)
+{
+    $ assert (CURR);
+
+    TNode *params      = LEFT;
+    int   initFreeOffs = FreeOffset;
+
+    IdsArr = (Id *) calloc (INIT_IDS_NUM, sizeof (Id));
+    IdsNum = 0;
+
+    long hash = abs(params->left->data);
+    LogMsg ("functon declared: %.*s\n", params->left->len, params->left->declared);
+    $ PrintA ("f%ld: ; def %.*s", hash, params->left->len, params->left->declared);
+    Tabs++;
+
+    for (TNode *curr_param = params->right;
+         curr_param;
+         curr_param = curr_param->left)
+    {
+        AddId (ASM_IDS, curr_param->right->data);
+        LogMsg ("param added: %.*s\n", curr_param->right->len, curr_param->right->declared);
+    }
+
+    PrintSt (RIGHT);
+
+    Tabs--;
+
+    FreeOffset = initFreeOffs;
+
+    free (IdsArr);
+    IdsNum = 0;
+
+    return 0;
+}
+
+static int PrintIN (TNode *node)
+{
+    $ if (!node) return 1;
+    PrintA ("in");
+    return 0;
+}
+
+static int PrintOUT (TNode *node)
+{
+    $ if (!node) return 1;
+    NodeToAsm (RIGHT);
+    PrintA ("out ; %.*s", RIGHT->len, RIGHT->declared);
+    PrintA ("pop tx ; to trash");
     return 0;
 }
 
@@ -89,21 +155,6 @@ static int PrintNeg (TNode *node)
     return 0;
 }
 
-static int PrintIN (TNode *node)
-{
-    $ if (!node) return 1;
-    PrintA ("in");
-    return 0;
-}
-
-static int PrintOUT (TNode *node)
-{
-    $ if (!node) return 1;
-    NodeToAsm (RIGHT);
-    PrintA ("out ; %.*s", RIGHT->len, RIGHT->declared);
-    PrintA ("pop tx ; to trash");
-    return 0;
-}
 
 static int PrintIF (TNode *node)
 {
@@ -156,51 +207,6 @@ static int PrintWHILE (TNode *node)
 
     PrintA ("%dwhileEnd:", localWhileNum);
     Tabs--;
-
-    return 0;
-}
-
-static int PrintAssn (TNode *node)
-{
-    $ int rErr = NodeToAsm (RIGHT);
-    if (rErr) return rErr;
-
-    int id_pos = FindId (ASM_IDS, LEFT->data, MemOffset);
-
-    if (id_pos >= 0)
-    {
-        if (LEFT->right->data != 0)
-        {
-            int offset = (int) LEFT->right->data + id_pos;
-            PrintA ("pop [%s+%d] ; %.*s", MEM, offset, LEFT->len, LEFT->declared);
-        }
-        else
-        {
-            PrintA ("pop [%s+%d] ; %.*s", MEM, id_pos, LEFT->len, LEFT->declared);
-        }
-    }
-    else
-    {
-        LogMsg ("var declared = %.*s; len = %d", LEFT->len, LEFT->declared, LEFT->len);
-        PrintA
-        (
-            "pop [%s+%d] ; declared %.*s", // save value to FREE + OFFSET
-            FREE, FreeOffset, LEFT->len, LEFT->declared
-        );
-        char isConst = 0;
-        if (LEFT->left) isConst = 1;
-
-        int len = (int) LEFT->right->data;
-        if (len < 1)
-        {
-            SyntaxErr ("Attempting to allocate array of size %d < 1, %s\n", len, LEFT->declared);
-            return ZERO_CAP_DECL;
-        }
-
-        AddId (ASM_IDS, LEFT->data, isConst, len, FreeOffset);
-        FreeOffset += len;
-        MoveReg (FREE, len);
-    }
 
     return 0;
 }
@@ -271,61 +277,54 @@ static int PrintOP (TNode *node)
 #undef OP_CASE
 #undef COMP_CASE
 
-static int PrintConst (TNode *node)
+static int PrintAssn (TNode *node)
 {
-    PrintA ("push %d ; const value", DATA);
+    $ int rErr = NodeToAsm (RIGHT);
+    if (rErr) return rErr;
 
-    return 0;
-}
+    int id_pos = FindId (ASM_IDS, LEFT->data, MemOffset);
 
-static int PrintRET (TNode *node)
-{
-    $ if (!RIGHT)
+    if (id_pos >= 0)
     {
-        PrintA ("push 0");
+        if (LEFT->right->data != 0)
+        {
+            int offset = (int) LEFT->right->data + id_pos;
+            PrintA ("pop [%s+%d] ; %.*s", MEM, offset, LEFT->len, LEFT->declared);
+        }
+        else
+        {
+            PrintA ("pop [%s+%d] ; %.*s", MEM, id_pos, LEFT->len, LEFT->declared);
+        }
     }
     else
     {
-        int rErr = NodeToAsm (RIGHT);
-        if (rErr) return rErr;
+        LogMsg ("var declared = %.*s; len = %d", LEFT->len, LEFT->declared, LEFT->len);
+        PrintA
+        (
+            "pop [%s+%d] ; declared %.*s", // save value to FREE + OFFSET
+            FREE, FreeOffset, LEFT->len, LEFT->declared
+        );
+        char isConst = 0;
+        if (LEFT->left) isConst = 1;
+
+        int len = (int) LEFT->right->data;
+        if (len < 1)
+        {
+            SyntaxErr ("Attempting to allocate array of size %d < 1, %s\n", len, LEFT->declared);
+            return ZERO_CAP_DECL;
+        }
+
+        AddId (ASM_IDS, LEFT->data, isConst, len, FreeOffset);
+        FreeOffset += len;
+        MoveReg (FREE, len);
     }
-    SAVE();
-    PrintA ("ret");
 
     return 0;
 }
 
-static int PrintDEF (TNode *node)
+static int PrintConst (TNode *node)
 {
-    $ assert (CURR);
-
-    TNode *params      = LEFT;
-    int   initFreeOffs = FreeOffset;
-
-    IdsArr = (Id *) calloc (INIT_IDS_NUM, sizeof (Id));
-    IdsNum = 0;
-
-    long hash = abs(params->left->data);
-    LogMsg ("functon declared: %.*s\n", params->left->len, params->left->declared);
-    $ PrintA ("f%ld: ; def %.*s", hash, params->left->len, params->left->declared);
-    Tabs++;
-
-    for (TNode *curr_param = params->right;
-         curr_param;
-         curr_param = curr_param->left)
-    {
-        AddId (ASM_IDS, curr_param->right->data);
-        LogMsg ("param added: %.*s\n", curr_param->right->len, curr_param->right->declared);
-    }
-
-    PrintSt (RIGHT);
-
-    Tabs--;
-
-    FreeOffset = initFreeOffs;
-
-    free (IdsArr);
-    IdsNum = 0;
+    PrintA ("push %d ; const value", DATA);
 
     return 0;
 }

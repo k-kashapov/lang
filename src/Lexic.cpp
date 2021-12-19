@@ -66,12 +66,12 @@ static TNode *GetLexToken (LexicAn *lan)
         int64_t val = 0;
         int len     = 0;
 
-        do
-        {
+        do  {
             len++;
             val = val * 10 + (*lan->str - '0');
             MovePtr (lan);
-        } while (*lan->str >= '0' && *lan->str <= '9');
+            }
+            while (*lan->str >= '0' && *lan->str <= '9');
 
         TNode *node = CreateNode (val, TYPE_CONST, declared);
         node->len   = len;
@@ -153,11 +153,10 @@ static int AnalyzeString (LexicAn *lan)
 
 TNode **LexicAnalysis (const char *string, int *nodesNum)
 {
-    TNode **nodesArr = (TNode **) calloc (INIT_NODES_NUM, sizeof (TNode *));
     LexicAn lan      = {};
     lan.str          = string;
     lan.nodesNum     = 0;
-    lan.nodesArr     = nodesArr;
+    lan.nodesArr     = (TNode **) calloc (INIT_NODES_NUM, sizeof (TNode *));
     lan.nodesCap     = INIT_NODES_NUM;
 
     int read = AnalyzeString (&lan);

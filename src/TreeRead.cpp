@@ -41,18 +41,31 @@ static int ProcessAlpha (Reader *rdr)
     }
 
     printf ("hash = %ld, simple = %ld;\n", hash, SimpleHash ("statement", 9));
-    if (hash == SimpleHash ("statement", 9))
+
+    if (hash == ServiceNodes[STMT])
     {
         type = TYPE_STATEMENT;
     }
     else
     {
-        for (int unary = 0; unary < UnaryNum; unary++)
+        for (int srvc = 0; srvc < SRVC_NUM; srvc++)
         {
-            if (hash == UnaryFuncs[unary])
+            if (hash == ServiceNodes[srvc])
             {
-                type = TYPE_UNARY;
+                type = TYPE_SERVICE;
                 break;
+            }
+        }
+
+        if (type == TYPE_VAR)
+        {
+            for (int unary = 0; unary < UnaryNum; unary++)
+            {
+                if (hash == UnaryFuncs[unary])
+                {
+                    type = TYPE_UNARY;
+                    break;
+                }
             }
         }
     }
@@ -123,11 +136,26 @@ static int ProcessSpecial (Reader *rdr)
                 CURR->left  = NULL;
             }
             break;
+        case '!': [[fallthrough]];
+        case '>': [[fallthrough]];
+        case '=': [[fallthrough]];
+        case '<':
+            printf ("Comparison char = %c\n", rdr->src[0]);
+            if (rdr->src[1] == '=')
+            {
+                printf ("next one is \'=\'\n");
+                CURR->data = *rdr->src + 2 * '=';
+                CURR->type = TYPE_OP;
+                CURR->declared = rdr->src;
+                CURR->len = 2;
+                rdr->src++;
+                break;
+            }
+            [[fallthrough]];
         case '^': [[fallthrough]];
         case '+': [[fallthrough]];
         case '-': [[fallthrough]];
         case '*': [[fallthrough]];
-        case '=': [[fallthrough]];
         case '/':
             CURR->data     = (tree_elem) (*rdr->src);
             CURR->type     = TYPE_OP;

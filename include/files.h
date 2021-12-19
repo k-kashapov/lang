@@ -22,6 +22,7 @@ enum FilesExitCodes
 enum LANG_OPTNS
 {
     READ_BASE = 0x01,
+    REVERSE   = 0x02,
 };
 
 /**

@@ -8,10 +8,13 @@ int main (int argc, const char **argv)
 
     TNode *res = NULL;
 
-    if (io_config.settings && READ_BASE)
+    if (io_config.settings & READ_BASE)
     {
         char *buf = NULL;
         res = BuildTreeFromBase (&io_config, &buf);
+
+        if (io_config.settings & REVERSE)
+            Reverse (res);
 
         Translate (res, "asm.txt");
 

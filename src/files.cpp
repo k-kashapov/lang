@@ -24,6 +24,10 @@ int GetArgs (int argc, const char **argv, Config *curr_config)
         {
             curr_config->settings |= READ_BASE;
         }
+        else if (!strncmp (*argv, "-r", 3))
+        {
+            curr_config->settings |= REVERSE;
+        }
     }
     return 0;
 }

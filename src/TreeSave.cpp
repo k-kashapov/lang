@@ -33,7 +33,8 @@ static void PrintNodeToBase (TNode *node)
 {
     switch (node->type)
     {
-        case TYPE_SERVICE:
+        case TYPE_SERVICE: [[fallthrough]];
+        case TYPE_UNARY:
             fprintf (Base_file, "%.*s", node->len, node->declared);
             break;
         case TYPE_VAR: [[fallthrough]];
@@ -65,12 +66,6 @@ static void PrintNodeToBase (TNode *node)
                                 "node %p\n", __LINE__, node->data, node);
                         break;
                 }
-            }
-            break;
-        case TYPE_UNARY:
-            {
-                int64_t data = node->data;
-                fprintf (Base_file, "%s", (char *)&data);
             }
             break;
         case TYPE_CONST:
