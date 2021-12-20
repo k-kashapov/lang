@@ -84,22 +84,24 @@ static int ProcessAlpha (Reader *rdr)
 
 static int ProcessNum (Reader *rdr)
 {
-    int64_t val    = 0;
+    double val    = 0;
     int bytes_read = 0;
 
-    int read = sscanf (rdr->src, "%ld%n", &val, &bytes_read);
+    int read = sscanf (rdr->src, "%lf%n", &val, &bytes_read);
     if (!read)
     {
         LogErr ("Const value read err: src = %s", rdr->src);
         return CONST_READ_FAIL;
     }
 
-    printf ("Const value read = %ld\n", val);
+    printf ("Const value read = %lf\n", val);
 
-    CURR->data     = val;
-    CURR->type     = TYPE_CONST;
-    CURR->declared = rdr->src;
-    CURR->len      = bytes_read;
+    CURR->data     = '/';
+    CURR->type     = TYPE_OP;
+    CURR->declared = "/";
+    CURR->len      = 1;
+    CURR->left     = CreateNode ((int64_t) (val * 1000), TYPE_CONST);
+    CURR->right    = CreateNode (1000, TYPE_CONST);
 
     rdr->src += bytes_read;
 

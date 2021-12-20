@@ -27,8 +27,8 @@ statement((('main')function)define((((((((((
             statement(return(0)))
             decision))))))
     statement(print(2)))
-    statement(print((((0)-('б'))+(('діскр')^((1)/(2))))/((2)*('а')))))
-    statement(print((((0)-('б'))-(('діскр')^((1)/(2))))/((2)*('а')))))
+    statement(print((((0)-('б'))+(('діскр')^(0.5)))/((2)*('а')))))
+    statement(print((((0)-('б'))-(('діскр')^(0.5)))/((2)*('а')))))
     statement(return(0)))))
 statement((('лінія')function((parameter('а'))parameter('б')))define(
     statement(return((0)-(('б')/('а')))))))
