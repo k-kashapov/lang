@@ -82,7 +82,9 @@ static int PrintDEF (TNode *node)
 
     Tabs++;
 
+    PrintA ("Алга\n");
     PrintSt (RIGHT);
+    PrintA ("Развернулся и алга.\n");
 
     Tabs--;
 
@@ -188,14 +190,19 @@ static int PrintOP (TNode *node)
         case '+': [[fallthrough]];
         case '-': [[fallthrough]];
         case '/': [[fallthrough]];
+        case '<': [[fallthrough]];
+        case '>': [[fallthrough]];
+        case '^': [[fallthrough]];
         case EE:  [[fallthrough]];
         case AE:  [[fallthrough]];
         case BE:  [[fallthrough]];
         case NE:
+            PrintA ("Биба");
             NodeToAnek (LEFT);
             PrintA ("%.*s", LEN, DECL);
             break;
         case '*':
+            PrintA ("Биба");
             NodeToAnek (LEFT);
             PrintA ("дофига");
             break;
@@ -204,7 +211,7 @@ static int PrintOP (TNode *node)
     }
 
     NodeToAnek (RIGHT);
-
+    PrintA ("Боба");
     return 0;
 }
 #undef OP_CASE
@@ -225,7 +232,10 @@ static int PrintDECL (TNode *node)
         isConst = 1;
     }
 
-    int len = (int) LEFT->right->data;
+    int len = 1;
+    if (LEFT->right)
+        len = (int) LEFT->right->data;
+
     if (len < 1)
     {
         SyntaxErr ("Attempting to allocate array of size %d < 1, %s\n", len, LEFT->declared);
@@ -235,9 +245,16 @@ static int PrintDECL (TNode *node)
     PrintA ("\" - подумал Штирлиц %d раз.", len);
 
     LogMsg ("var declared = %.*s; len = %d\n", LEFT->len, LEFT->declared, LEFT->len);
-    AddId (ANEK_IDS, LEFT->data, isConst, len);
+    if (!IdsArr)
+    {
+        AddId (CONST_IDS, LEFT->data, 1, len);
+    }
+    else
+    {
+        AddId (ANEK_IDS, LEFT->data, isConst, len);
+    }
 
-    return 0;
+    return isConst;
 }
 
 static int PrintAssn (TNode *node)
@@ -245,7 +262,9 @@ static int PrintAssn (TNode *node)
     $ int decl = FindId (ANEK_IDS, LEFT->data);
     if (decl < 0)
     {
-        $ return PrintDECL (CURR);
+        LogMsg ("Undeclared variable used: %.*s\nDeclaring...\n", LEN, DECL);
+        $ int isConst = PrintDECL (CURR);
+        if (isConst) return 0;
     }
 
     $ PrintA ("Этим");
@@ -287,8 +306,15 @@ static int PrintID (TNode *node)
 
 static int PrintVar (TNode *node)
 {
-    LogMsg ("Looking for hash = %ld; name = %.*s\n", DATA, LEN, DECL);
-    int id_pos = FindId (ANEK_IDS, DATA);
+    LogMsg ("Looking for const = %ld; name = %.*s\n", DATA, LEN, DECL);
+    int id_pos = FindId (CONST_IDS, DATA);
+
+    if (id_pos < 0)
+    {
+        LogMsg ("Looking for hash = %ld; name = %.*s\n", DATA, LEN, DECL);
+        id_pos = FindId (ANEK_IDS, DATA);
+    }
+
     LogMsg ("Hash found on pos = %d\n", id_pos);
 
     if (!RIGHT || RIGHT->data == 0)
@@ -302,7 +328,6 @@ static int PrintVar (TNode *node)
 
     if (id_pos < 0)
     {
-        LogMsg ("Undeclared variable used: %.*s\nDeclaring...\n", LEN, DECL);
         return UNDECLARED;
     }
 
@@ -319,7 +344,7 @@ static int PrintSt (TNode *node)
 
     $ int rErr = NodeToAnek (RIGHT);
 
-    PrintA ("\n");
+    PrintA ("\n\n");
 
     return rErr;
 }
@@ -380,10 +405,15 @@ int Reverse (TNode *root, const char *name)
         return OPEN_FILE_FAILED;
     }
 
+    ConstArr = (Id *) calloc (INIT_IDS_NUM, sizeof (Id));
+    ConstNum = 0;
+
+    PrintA ("Купил мужик шляпу.\n");
+
     int err = NodeToAnek (root);
     if (err) printf ("Node to anek: errors occured: %d\n", err);
 
-    PrintA ("Развернулся и алга.");
+    PrintA ("А она ему как раз, господа.");
 
     return err;
 }

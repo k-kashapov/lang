@@ -99,8 +99,12 @@ TNode *GetSt (Trans *trans, const char *end_cond)
 
 TNode *GetG (Trans *trans, int *ce)
 {
-    TNode *root = GetSt (trans, "Развернулся");
+    TNode *root = NULL;
+
+    Require (INIT);
+    root = GetSt (trans, "А");
     *ce = COMP_ERR;
+
     Require (PROG_END);
     return root;
 }
@@ -143,6 +147,7 @@ TNode *GetID (Trans *trans)
     SyntaxErr ("Get ID: Using an undeclared variable: %.*s\n",
                root->len,
                root->declared);
+    LogMsg ("SyntaxErr: %s\n", root->declared);
     MovePtr (trans);
     return root;
 }
@@ -393,6 +398,27 @@ TNode *GetE (Trans *trans)
     return root;
 }
 
+TNode *GetRet (Trans *trans)
+{
+    TNode *root = CreateNodeWithStr ("return", TYPE_SERVICE);
+
+    Require (DEFRET);
+
+    TNode *ret_val = NULL;
+    if (CheckTok (trans, ","))
+    {
+        ret_val = CreateNode (0, TYPE_CONST);
+    }
+    else
+    {
+        ret_val = GetE (trans);
+    }
+    root->right = ret_val;
+
+    Require (RETEND);
+    return root;
+}
+
 static TNode *GetFuncParams (Trans *trans)
 {
     TNode *root = CreateNodeWithStr ("function", TYPE_SERVICE);
@@ -451,20 +477,12 @@ TNode *GetFunc (Trans *trans)
     root->left       = GetFuncParams (trans);
     root->left->left = name;
 
-    TNode *body    = GetSt (trans, "Козырная");
-    TNode *ret_val = NULL;
-    MovePtr (trans);
-    if (!CheckTok (trans, ","))
-    {
-        ret_val = GetE (trans);
-    }
-    Require (RETEND);
+    Require (ALGA);
 
-    TNode *ret = CreateNodeWithStr ("return", TYPE_SERVICE);
-    ret->right = ret_val;
-    body       = ST (body, ret);
-
+    TNode *body  = GetSt (trans, "Развернулся");
     root->right = body;
+
+    Require (BACK_ALGA);
     )
 
     return root;
@@ -478,13 +496,13 @@ TNode *GetCall (Trans *trans)
 
     curr->right       = CreateNodeWithStr ("parameter", TYPE_SERVICE);
     curr              = curr->right;
-    curr->right       = GetID (trans);
+    curr->right       = GetE (trans);
 
     while (!CheckTok (trans, "."))
     {
         curr->left  = CreateNodeWithStr ("parameter", TYPE_SERVICE);
         curr        = curr->left;
-        TNode *var  = GetID (trans);
+        TNode *var  = GetE (trans);
         curr->right = var;
     }
 
@@ -582,9 +600,14 @@ TNode *GetOP (Trans *trans)
     {
         TNode *root = CreateNodeWithStr ("print", TYPE_SERVICE);
         Require (OUT_PH);
-        root->right = GetID (trans);
+        root->right = GetE (trans);
         MovePtr (trans);
         return root;
+    }
+
+    if (CheckTok (trans, "Козырная"))
+    {
+        return GetRet (trans);
     }
 
     return Assn (trans);
@@ -631,10 +654,13 @@ TNode *GetDec (Trans *trans)
 
     TNode *idtok = GetTok (trans);
     MovePtr (trans);
-    if (FindId (TRANS_IDS, idtok->data) >= 0)
+
+    int id_pos = FindId (TRANS_IDS, idtok->data);
+    if (id_pos >= 0)
     {
-        SyntaxErr ("Re-declaration of variable: %.*s\n",
-                   idtok->len, idtok->declared);
+        SyntaxErr ("Re-declaration of variable: %.*s\nId_pos: %d\n",
+                   idtok->len, idtok->declared, id_pos);
+        LogMsg ("SyntaxErr!!! code: %s\n", idtok->declared);
         return NULL;
     }
     root  = CreateNode ('=', TYPE_OP, idtok->declared, idtok);
@@ -647,13 +673,16 @@ TNode *GetDec (Trans *trans)
         isConst = 1;
         MovePtr (trans);
         root->right = GetN (trans);
-
+        LogMsg ("Declared const var: %.*s = %d\n",
+                root->left->len, root->left->declared, root->right->data);
         idtok->left = CreateNodeWithStr ("const", TYPE_SERVICE);
     }
     else
     {
         root->right      = CreateNode (0, TYPE_CONST);
         root->right->len = 1;
+        LogMsg ("Declared var: %.*s = 0\n",
+                root->left->len, root->left->declared);
     }
 
     Require (DECLEND);

@@ -86,6 +86,8 @@ void PrintNodeDot (TNode *node)
                 COLOR_CASE ('/', "orange");
                 COLOR_CASE ('!', "darkseagreen1");
                 COLOR_CASE ('=', "aqua");
+                COLOR_CASE ('<', "mediumslateblue");
+                COLOR_CASE ('>', "chocolate");
                 COLOR_CASE (AE,  "darkorchid1");
                 COLOR_CASE (BE,  "deeppink");
                 COLOR_CASE (NE,  "mediumturquoise");
@@ -131,6 +133,8 @@ void PrintNodeDot (TNode *node)
                     OP_PRINT ('/', "/");
                     OP_PRINT ('!', "!");
                     OP_PRINT ('=', "=");
+                    OP_PRINT ('<', "<");
+                    OP_PRINT ('>', ">");
                     OP_PRINT (AE,  ">=");
                     OP_PRINT (BE,  "<=");
                     OP_PRINT (NE,  "!=");

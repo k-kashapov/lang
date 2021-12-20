@@ -55,6 +55,8 @@ static void PrintNodeToBase (TNode *node)
                     OP_PRINT ('/', "/");
                     OP_PRINT ('!', "!");
                     OP_PRINT ('=', "=");
+                    OP_PRINT ('<', "<");
+                    OP_PRINT ('>', ">");
                     OP_PRINT (AE,  ">=");
                     OP_PRINT (BE,  "<=");
                     OP_PRINT (NE,  "!=");

@@ -1,0 +1,34 @@
+((
+statement((('main')function)define((((((((((
+    statement(('а')=(scan)))
+    statement(('б')=(scan)))
+    statement(('в')=(scan)))
+    statement((('а')==(0))if((
+        statement((('б')==(0))if((
+            statement((('в')==(0))if(((
+                statement(print(777)))
+                statement(return(0)))
+                decision((
+                statement(print(666)))
+                statement(return(0))))))
+            decision(((
+            statement(print(1)))
+            statement(print(('лінія')call((parameter('б'))parameter('в')))))
+            statement(return(0))))))
+        decision)))
+    statement(('діскр')=((('б')*('б'))-(((4)*('а'))*('в')))))
+    statement((('діскр')<(0))if(((
+        statement(print(666)))
+        statement(return(0)))
+        decision(
+        statement((('діскр')==(0))if((((
+            statement(print(1)))
+            statement(print(('лінія')call((parameter((2)*('а')))parameter('б')))))
+            statement(return(0)))
+            decision))))))
+    statement(print(2)))
+    statement(print((((0)-('б'))+(('діскр')^((1)/(2))))/((2)*('а')))))
+    statement(print((((0)-('б'))-(('діскр')^((1)/(2))))/((2)*('а')))))
+    statement(return(0)))))
+statement((('лінія')function((parameter('а'))parameter('б')))define(
+    statement(return((0)-(('б')/('а')))))))

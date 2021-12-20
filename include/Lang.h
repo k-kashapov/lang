@@ -135,6 +135,8 @@ TNode *Assn (Trans *trans);
 
 TNode *GetG (Trans *trans, int *ce);
 
+TNode *GetRet (Trans *trans);
+
 TNode *GetFunc (Trans *trans);
 
 TNode *GetCall (Trans *trans);

@@ -61,22 +61,14 @@ static int PrintCALL (TNode *node)
     PrintA ("pop %s", MEM);
     PrintA ("pop %s", FREE);
 
-    PrintA ("push %s", RES);
-
     return 0;
 }
 
 static int PrintRET (TNode *node)
 {
-    $ if (!RIGHT)
-    {
-        PrintA ("push 0");
-    }
-    else
-    {
-        int rErr = NodeToAsm (RIGHT);
-        if (rErr) return rErr;
-    }
+    $ int rErr = NodeToAsm (RIGHT);
+    if (rErr) return rErr;
+
     SAVE();
     PrintA ("ret");
 
@@ -113,6 +105,7 @@ static int PrintDEF (TNode *node)
     FreeOffset = initFreeOffs;
 
     free (IdsArr);
+    IdsArr = NULL;
     IdsNum = 0;
 
     return 0;
@@ -129,6 +122,8 @@ static int PrintOUT (TNode *node)
 {
     $ if (!node) return 1;
     NodeToAsm (RIGHT);
+    if (RIGHT->data == ServiceNodes[CALL])
+        PrintA ("push rx");
     PrintA ("out ; %.*s", RIGHT->len, RIGHT->declared);
     PrintA ("pop tx ; to trash");
     return 0;
@@ -230,8 +225,8 @@ static int PrintSERV (TNode *node)
     case op:                                                                    \
         NodeToAsm (LEFT);                                                       \
         NodeToAsm (RIGHT);                                                      \
-        PrintA (act "");                                                        \
-        return 0
+        PrintA (act);                                                        \
+        break
 
 #define COMP_CASE(val, action)                                                  \
     case val:                                                                   \
@@ -264,11 +259,15 @@ static int PrintOP (TNode *node)
         COMP_CASE (AE, "jae");
         COMP_CASE (BE, "jbe");
         COMP_CASE (NE, "jn");
+        COMP_CASE ('>', "ja");
+        COMP_CASE ('<', "jb");
         OP_CASE ('+', "add");
         OP_CASE ('-', "sub");
         OP_CASE ('*', "mul");
         OP_CASE ('/', "div");
+        OP_CASE ('^', "pow");
         default:
+            printf("JOPAAAAAAAAAA\n");
             break;
     }
 
@@ -281,12 +280,18 @@ static int PrintAssn (TNode *node)
 {
     $ int rErr = NodeToAsm (RIGHT);
     if (rErr) return rErr;
+    if (RIGHT->data == ServiceNodes[CALL])
+        PrintA ("push rx");
 
     int id_pos = FindId (ASM_IDS, LEFT->data, MemOffset);
 
+    int len = 0;
+    if (LEFT->right)
+        len = (int) LEFT->right->data;
+
     if (id_pos >= 0)
     {
-        if (LEFT->right->data != 0)
+        if (len != 0)
         {
             int offset = (int) LEFT->right->data + id_pos;
             PrintA ("pop [%s+%d] ; %.*s", MEM, offset, LEFT->len, LEFT->declared);
@@ -307,14 +312,13 @@ static int PrintAssn (TNode *node)
         char isConst = 0;
         if (LEFT->left) isConst = 1;
 
-        int len = (int) LEFT->right->data;
         if (len < 1)
         {
-            SyntaxErr ("Attempting to allocate array of size %d < 1, %s\n", len, LEFT->declared);
-            return ZERO_CAP_DECL;
+            len = 1;
         }
 
         AddId (ASM_IDS, LEFT->data, isConst, len, FreeOffset);
+
         FreeOffset += len;
         MoveReg (FREE, len);
     }
@@ -443,6 +447,9 @@ int Translate (TNode *root, const char *name)
         LogErr ("Unable to open asm file; name = %s\n", name);
         return OPEN_FILE_FAILED;
     }
+
+    GlobalArr = (Id *) calloc (INIT_IDS_NUM, sizeof (Id));
+    GlobalNum = 0;
 
     PrintA ("push 0");
     PrintA ("pop %s ; available memory offset", MEM);

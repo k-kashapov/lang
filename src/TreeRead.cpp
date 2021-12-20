@@ -61,6 +61,7 @@ static int ProcessAlpha (Reader *rdr)
         {
             for (int unary = 0; unary < UnaryNum; unary++)
             {
+                printf ("hash = %d; got = %d\n", UnaryFuncs[unary], hash);
                 if (hash == UnaryFuncs[unary])
                 {
                     type = TYPE_UNARY;
@@ -137,8 +138,8 @@ static int ProcessSpecial (Reader *rdr)
             }
             break;
         case '!': [[fallthrough]];
-        case '>': [[fallthrough]];
         case '=': [[fallthrough]];
+        case '>': [[fallthrough]];
         case '<':
             printf ("Comparison char = %c\n", rdr->src[0]);
             if (rdr->src[1] == '=')

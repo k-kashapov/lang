@@ -7,6 +7,8 @@ static FILE *AnekFile = NULL;
 static int  IdsNum    = 0;
 static Id   *IdsArr   = NULL;
 static int  Tabs      = 0;
+static Id   *ConstArr = NULL;
+static int  ConstNum  = 0;
 
 static void PrintA        (const char *msg, ...);
 static int  PrintCallArgs (TNode *node);
@@ -37,6 +39,8 @@ static int  NodeToAnek    (TNode *node);
 #define TYPE     node->type
 #define IDS      IdsArr
 #define IDNUM    IdsNum
-#define ANEK_IDS &IDS, &IDNUM
+
+#define ANEK_IDS  &IDS,      &IDNUM
+#define CONST_IDS &ConstArr, &ConstNum
 
 #endif
